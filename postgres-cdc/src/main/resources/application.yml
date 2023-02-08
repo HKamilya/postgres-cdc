@@ -12,3 +12,9 @@ management:
     web:
       exposure:
         include: httptrace
+
+pulsar:
+  producer:
+    url: pulsar://localhost:6650
+    topic: json-changes
+    producer-name: changes-sender

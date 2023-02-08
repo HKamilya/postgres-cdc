@@ -1,5 +1,6 @@
-package ru.kpfu.itis.postgrescdc.service;
+package ru.kpfu.itis.postgrescdc.service.connectors.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.postgresql.PGConnection;
 import org.postgresql.PGProperty;
@@ -10,18 +11,21 @@ import org.postgresql.replication.PGReplicationStream;
 import org.postgresql.util.PSQLException;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
+import ru.kpfu.itis.postgrescdc.service.SenderService;
+import ru.kpfu.itis.postgrescdc.service.connectors.ConnectorServiceImpl;
+import ru.kpfu.itis.postgrescdc.service.connectors.PgOutputConnectorService;
 
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implements PgOutputConnectorService {
     private static final String SLOT_NAME = "cdc_postgres_pgoutput_replication_slot";
-
+    private final SenderService sender;
     private static final String PUBLICATION = "cdc_postgres_pgoutput_pub";
 
     private static String toString(ByteBuffer buffer) {
@@ -33,7 +37,7 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
     }
 
     @Override
-    public void receiveChangesOccursBeforeStartReplication(Connection connection, Connection replicationConnection, boolean fromBegin) throws Exception {
+    public void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;
@@ -52,18 +56,6 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
                         .withStartPosition(lsn)
                         .withSlotOption("proto_version", 1)
                         .withSlotOption("publication_names", PUBLICATION)
-                        //   .withSlotOption("include-xids", true)
-                        //    .withSlotOption("skip-empty-xacts", true)
-                        //    .withSlotOption("binary","true")
-                        //    .withSlotOption("sizeof_datum", "8")
-                        //    .withSlotOption("sizeof_int", "4")
-                        //       .withSlotOption("sizeof_long", "8")
-                        //       .withSlotOption("bigendian", "false")
-                        //       .withSlotOption("float4_byval", "true")
-                        //       .withSlotOption("float8_byval", "true")
-                        //       .withSlotOption("integer_datetimes", "true")
-                        // .withSlotOption("include-xids", true)
-                        // .withSlotOption("skip-empty-xacts", true)
                         .withStatusInterval(10, TimeUnit.SECONDS)
                         .start();
         ByteBuffer buffer;
@@ -74,7 +66,9 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
                 continue;
             }
 
-            log.info(toString(buffer));
+            String changes = toString(buffer);
+            log.info(changes);
+            sender.sendByteAsync(changes.getBytes());
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());
         }
@@ -100,21 +94,15 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
             createLogicalReplicationSlot(connection, SLOT_NAME, connectorModel.getPlugin().name());
             try {
                 dropPublication(connection, PUBLICATION);
-            }catch (PSQLException e){
+            } catch (PSQLException e) {
                 // ignore
             }
             createPublication(connection, PUBLICATION, connectorModel.isForAllTables(), connectorModel.getTables());
             Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-            receiveChangesOccursBeforeStartReplication(connection, replicationConnection, connectorModel.isFromBegin());
+            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin());
 
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (TimeoutException e) {
-            e.printStackTrace();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException(e);
         }
     }
 
@@ -136,7 +124,7 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
 
     private LogSequenceNumber getAllLSN(Connection connection) throws SQLException {
         try (Statement st = connection.createStatement()) {
-            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_binary_changes('" + SLOT_NAME + "', null, null, 'proto_version', '1', 'publication_names', '" + PUBLICATION + "');")) {
+            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_get_binary_changes('" + SLOT_NAME + "', null, null, 'proto_version', '1', 'publication_names', '" + PUBLICATION + "');")) {
 
                 if (rs.next()) {
                     String lsn = rs.getString(1);

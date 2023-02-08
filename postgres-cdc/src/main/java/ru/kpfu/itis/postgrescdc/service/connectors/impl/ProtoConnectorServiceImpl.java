@@ -1,5 +1,6 @@
-package ru.kpfu.itis.postgrescdc.service;
+package ru.kpfu.itis.postgrescdc.service.connectors.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.postgresql.PGConnection;
 import org.postgresql.PGProperty;
@@ -10,20 +11,23 @@ import org.postgresql.replication.PGReplicationStream;
 import org.postgresql.util.PSQLException;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
+import ru.kpfu.itis.postgrescdc.service.SenderService;
+import ru.kpfu.itis.postgrescdc.service.connectors.ProtoConnectorService;
+import ru.kpfu.itis.postgrescdc.service.connectors.ConnectorServiceImpl;
 
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements ProtoConnectorService {
 
     private static final String SLOT_NAME = "cdc_postgres_proto_replication_slot";
-
+    private final SenderService sender;
     private static final String PUBLICATION = "cdc_postgres_proto_pub";
 
     private static String toString(ByteBuffer buffer) {
@@ -35,7 +39,7 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
     }
 
     @Override
-    public void receiveChangesOccursBeforeStartReplication(Connection connection, Connection replicationConnection, boolean fromBegin) throws Exception {
+    public void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;
@@ -52,25 +56,10 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
                         .logical()
                         .withSlotName(SLOT_NAME)
                         .withStartPosition(lsn)
-//                        .withSlotOption("proto_version", 1)
-//                        .withSlotOption("publication_names", PUBLICATION)
-                        //   .withSlotOption("include-xids", true)
-                        //    .withSlotOption("skip-empty-xacts", true)
-                        //    .withSlotOption("proto_version",1)
-                        //   .withSlotOption("publication_names", PUBLICATION)
-                        //    .withSlotOption("binary","true")
-                        //    .withSlotOption("sizeof_datum", "8")
-                        //    .withSlotOption("sizeof_int", "4")
-                        //       .withSlotOption("sizeof_long", "8")
-                        //       .withSlotOption("bigendian", "false")
-                        //       .withSlotOption("float4_byval", "true")
-                        //       .withSlotOption("float8_byval", "true")
-                        //       .withSlotOption("integer_datetimes", "true")
-                        // .withSlotOption("include-xids", true)
-                        // .withSlotOption("skip-empty-xacts", true)
                         .withStatusInterval(10, TimeUnit.SECONDS)
                         .start();
         ByteBuffer buffer;
+
         while (true) {
             buffer = stream.readPending();
             if (buffer == null) {
@@ -78,7 +67,9 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
                 continue;
             }
 
-            log.info(toString(buffer));
+            String changes = toString(buffer);
+            log.info(changes);
+            sender.sendProtoAsync(changes.getBytes());
             //feedback
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());
@@ -154,16 +145,10 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
             }
             createPublication(connection, PUBLICATION, connectorModel.isForAllTables(), connectorModel.getTables());
             Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-            receiveChangesOccursBeforeStartReplication(connection, replicationConnection, connectorModel.isFromBegin());
+            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin());
 
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (TimeoutException e) {
-            e.printStackTrace();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException(e);
         }
     }
 }

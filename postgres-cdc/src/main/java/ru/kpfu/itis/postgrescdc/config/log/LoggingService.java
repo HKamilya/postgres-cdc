@@ -1,4 +1,4 @@
-package ru.kpfu.itis.postgrescdc.config;
+package ru.kpfu.itis.postgrescdc.config.log;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;

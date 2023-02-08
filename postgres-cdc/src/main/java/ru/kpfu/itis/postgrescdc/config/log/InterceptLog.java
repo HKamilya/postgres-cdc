@@ -1,4 +1,4 @@
-package ru.kpfu.itis.postgrescdc.config;
+package ru.kpfu.itis.postgrescdc.config.log;
 
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +8,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.validation.constraints.NotNull;
 
 @Component
 public class InterceptLog implements HandlerInterceptor {
@@ -17,7 +16,7 @@ public class InterceptLog implements HandlerInterceptor {
     LoggingService loggingService;
 
     @Override
-    public boolean preHandle(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) throws Exception {
+    public boolean preHandle(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) {
         if (request.getMethod().equals(HttpMethod.GET.name())
                 || request.getMethod().equals(HttpMethod.DELETE.name())
                 || request.getMethod().equals(HttpMethod.PUT.name())) {

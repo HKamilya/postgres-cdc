@@ -1,4 +1,4 @@
-package ru.kpfu.itis.postgrescdc.config;
+package ru.kpfu.itis.postgrescdc.config.log;
 
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -13,9 +13,6 @@
     <version>0.0.1-SNAPSHOT</version>
     <name>postgres-cdc</name>
     <description>postgres-cdc</description>
-    <properties>
-        <java.version>14</java.version>
-    </properties>
     <dependencies>
         <dependency>
             <groupId>org.apache.kafka</groupId>
@@ -99,6 +96,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.pulsar</groupId>
+            <artifactId>pulsar-client</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>3.21.12</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>3.21.12</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -113,6 +125,30 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.xolstice.maven.plugins</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
+                <version>0.6.1</version>
+                <configuration>
+                    <protocExecutable>/usr/local/bin/protoc</protocExecutable>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>test-compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>14</source>
+                    <target>14</target>
                 </configuration>
             </plugin>
         </plugins>
