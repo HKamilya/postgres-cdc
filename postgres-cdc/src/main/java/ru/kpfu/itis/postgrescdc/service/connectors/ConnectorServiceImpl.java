@@ -2,8 +2,14 @@ package ru.kpfu.itis.postgrescdc.service.connectors;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.postgresql.PGProperty;
+import org.postgresql.core.BaseConnection;
+import org.postgresql.core.ServerVersion;
+import org.postgresql.replication.LogSequenceNumber;
 
 import java.sql.*;
+import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -14,7 +20,7 @@ public abstract class ConnectorServiceImpl {
         return "jdbc:postgresql://" + host + ':' + port + '/' + database;
     }
 
-    public Connection createConnection(String user, String password, String host, String port, String database) throws SQLException {
+    protected Connection createConnection(String user, String password, String host, String port, String database) throws SQLException {
         try {
             return DriverManager.getConnection(createUrl(host, port, database), user, password);
         } catch (SQLException ex) {
@@ -24,7 +30,7 @@ public abstract class ConnectorServiceImpl {
 
     }
 
-    public void dropPublication(Connection connection, String publication) throws SQLException {
+    protected void dropPublication(Connection connection, String publication) throws SQLException {
 
         try (PreparedStatement preparedStatement =
                      connection.prepareStatement("DROP PUBLICATION " + publication)) {
@@ -32,7 +38,7 @@ public abstract class ConnectorServiceImpl {
         }
     }
 
-    public void createPublication(Connection connection, String publication, boolean forAllTables, String tables) throws SQLException {
+    protected void createPublication(Connection connection, String publication, boolean forAllTables, String tables) throws SQLException {
         if (StringUtils.isNotBlank(tables)) {
             try (PreparedStatement preparedStatement =
                          connection.prepareStatement("CREATE PUBLICATION " + publication + " FOR TABLE " + tables)) {
@@ -47,7 +53,7 @@ public abstract class ConnectorServiceImpl {
         }
     }
 
-    public void createLogicalReplicationSlot(Connection connection, String slotName, String outputPlugin) throws InterruptedException, SQLException, TimeoutException {
+    protected void createLogicalReplicationSlot(Connection connection, String slotName, String outputPlugin) throws InterruptedException, SQLException, TimeoutException {
         //drop previous slot
         dropReplicationSlot(connection, slotName);
 
@@ -83,18 +89,7 @@ public abstract class ConnectorServiceImpl {
         }
     }
 
-    public boolean isReplicationSlotActive(Connection connection, String slotName)
-            throws SQLException {
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT active FROM pg_replication_slots WHERE slot_name = ?")) {
-            preparedStatement.setString(1, slotName);
-            try (ResultSet rs = preparedStatement.executeQuery()) {
-                return rs.next() && rs.getBoolean(1);
-            }
-        }
-    }
-
-    public void waitStopReplicationSlot(Connection connection, String slotName)
+    private void waitStopReplicationSlot(Connection connection, String slotName)
             throws InterruptedException, TimeoutException, SQLException {
         long startWaitTime = System.currentTimeMillis();
         boolean stillActive;
@@ -111,5 +106,55 @@ public abstract class ConnectorServiceImpl {
         if (stillActive) {
             throw new TimeoutException("Wait stop replication slot " + timeInWait + " timeout occurs");
         }
+    }
+
+    protected boolean isReplicationSlotExists(String slotName, String plugin, Connection connection) {
+        try (Statement st = connection.createStatement()) {
+            try (ResultSet rs = st.executeQuery("select slot_name, plugin from pg_replication_slots")) {
+                if (rs.next()) {
+                    return Objects.equals(rs.getString(1), slotName) && Objects.equals(rs.getString(2), plugin);
+                }
+                return false;
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public boolean isReplicationSlotActive(Connection connection, String slotName)
+            throws SQLException {
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT active FROM pg_replication_slots WHERE slot_name = ?")) {
+            preparedStatement.setString(1, slotName);
+            try (ResultSet rs = preparedStatement.executeQuery()) {
+                return rs.next() && rs.getBoolean(1);
+            }
+        }
+    }
+
+    protected LogSequenceNumber getCurrentLSN(Connection connection) throws SQLException {
+        try (Statement st = connection.createStatement()) {
+            try (ResultSet rs = st.executeQuery("select "
+                    + (((BaseConnection) connection).haveMinimumServerVersion(ServerVersion.v10)
+                    ? "pg_current_wal_lsn()" : "pg_current_xlog_location()"))) {
+
+                if (rs.next()) {
+                    String lsn = rs.getString(1);
+                    return LogSequenceNumber.valueOf(lsn);
+                } else {
+                    return LogSequenceNumber.INVALID_LSN;
+                }
+            }
+        }
+    }
+
+    protected Connection openReplicationConnection(String user, String password, String host, String port, String database) throws Exception {
+        Properties properties = new Properties();
+        properties.setProperty("user", user);
+        properties.setProperty("password", password);
+        PGProperty.ASSUME_MIN_SERVER_VERSION.set(properties, "9.4");
+        PGProperty.REPLICATION.set(properties, "database");
+        PGProperty.PREFER_QUERY_MODE.set(properties, "simple");
+        return DriverManager.getConnection(createUrl(host, port, database), properties);
     }
 }

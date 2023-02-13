@@ -14,6 +14,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @RestController("/connector")
 @RequiredArgsConstructor
@@ -29,6 +30,7 @@ public class ConnectorRestImpl implements ConnectorRest {
     @PostMapping("")
     @Override
     public ResponseEntity<Object> addConnectors(@RequestBody @Valid @NotNull ConnectorModel model) {
+        model.setId(UUID.randomUUID());
         service.createConnector(model);
         return ResponseEntity.ok().build();
     }

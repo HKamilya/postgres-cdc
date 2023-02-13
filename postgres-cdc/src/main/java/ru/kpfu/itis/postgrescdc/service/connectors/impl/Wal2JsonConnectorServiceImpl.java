@@ -3,21 +3,24 @@ package ru.kpfu.itis.postgrescdc.service.connectors.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.postgresql.PGConnection;
-import org.postgresql.PGProperty;
 import org.postgresql.core.BaseConnection;
 import org.postgresql.core.ServerVersion;
 import org.postgresql.replication.LogSequenceNumber;
 import org.postgresql.replication.PGReplicationStream;
 import org.postgresql.util.PSQLException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
+import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 import ru.kpfu.itis.postgrescdc.service.SenderService;
 import ru.kpfu.itis.postgrescdc.service.connectors.ConnectorServiceImpl;
 import ru.kpfu.itis.postgrescdc.service.connectors.Wal2JsonConnectorService;
 
 import java.nio.ByteBuffer;
-import java.sql.*;
-import java.util.Properties;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 
 
@@ -41,7 +44,7 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
     }
 
     @Override
-    public void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin) throws Exception {
+    public void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin, PluginEnum plugin) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;
@@ -70,33 +73,20 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
 
             String changes = toString(buffer);
             log.info(changes);
-            sender.sendJsonAsync(changes);
-            //feedback
+            if (plugin == PluginEnum.wal2json) {
+                sender.sendJsonAsync(changes);
+            }
+            if (plugin == PluginEnum.avro) {
+                sender.sendAvroAsync(changes);
+            }
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());
-        }
-
-    }
-
-    private LogSequenceNumber getCurrentLSN(Connection connection) throws SQLException {
-        try (Statement st = connection.createStatement()) {
-            try (ResultSet rs = st.executeQuery("select "
-                    + (((BaseConnection) connection).haveMinimumServerVersion(ServerVersion.v10)
-                    ? "pg_current_wal_lsn()" : "pg_current_xlog_location()"))) {
-
-                if (rs.next()) {
-                    String lsn = rs.getString(1);
-                    return LogSequenceNumber.valueOf(lsn);
-                } else {
-                    return LogSequenceNumber.INVALID_LSN;
-                }
-            }
         }
     }
 
     private LogSequenceNumber getAllLSN(Connection connection) throws SQLException {
         try (Statement st = connection.createStatement()) {
-            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_get_changes('" + SLOT_NAME + "', null, null);")) {
+            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_changes('" + SLOT_NAME + "', null, null);")) {
 
                 if (rs.next()) {
                     String lsn = rs.getString(1);
@@ -106,23 +96,13 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
                 }
             }
         }
-    }
-
-    private Connection openReplicationConnection(String user, String password, String host, String port, String database) throws Exception {
-        Properties properties = new Properties();
-        properties.setProperty("user", user);
-        properties.setProperty("password", password);
-        PGProperty.ASSUME_MIN_SERVER_VERSION.set(properties, "9.4");
-        PGProperty.REPLICATION.set(properties, "database");
-        PGProperty.PREFER_QUERY_MODE.set(properties, "simple");
-        return DriverManager.getConnection(createUrl(host, port, database), properties);
     }
 
     private boolean isServerCompatible(Connection connection) {
         return ((BaseConnection) connection).haveMinimumServerVersion(ServerVersion.v9_5);
     }
 
-
+    @Async
     public void createConnection(ConnectorModel connectorModel) {
         Connection connection;
 
@@ -138,15 +118,20 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
             return;
         }
         try {
-            createLogicalReplicationSlot(connection, SLOT_NAME, connectorModel.getPlugin().name());
-            try {
-                dropPublication(connection, PUBLICATION);
-            } catch (PSQLException e) {
-                // ignore
+            if (!isReplicationSlotExists(SLOT_NAME, PluginEnum.wal2json.name(), connection)) {
+
+                createLogicalReplicationSlot(connection, SLOT_NAME, PluginEnum.wal2json.name());
+                try {
+                    dropPublication(connection, PUBLICATION);
+                } catch (PSQLException e) {
+                    throw new IllegalArgumentException(e);
+                }
+                createPublication(connection, PUBLICATION, connectorModel.isForAllTables(), connectorModel.getTables());
             }
-            createPublication(connection, PUBLICATION, connectorModel.isForAllTables(), connectorModel.getTables());
-            Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin());
+            if (!isReplicationSlotActive(connection, SLOT_NAME)) {
+                Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
+                receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getPlugin());
+            }
 
         } catch (Exception e) {
             throw new IllegalStateException(e);
