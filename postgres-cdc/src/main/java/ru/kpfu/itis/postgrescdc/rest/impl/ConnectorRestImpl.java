@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.rest.ConnectorRest;
-import ru.kpfu.itis.postgrescdc.service.SenderService;
+import ru.kpfu.itis.postgrescdc.service.ConnectorService;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -19,7 +19,7 @@ import java.util.UUID;
 @RestController("/connector")
 @RequiredArgsConstructor
 public class ConnectorRestImpl implements ConnectorRest {
-    private final SenderService service;
+    private final ConnectorService connectorService;
 
     @GetMapping("")
     @Override
@@ -31,7 +31,7 @@ public class ConnectorRestImpl implements ConnectorRest {
     @Override
     public ResponseEntity<Object> addConnectors(@RequestBody @Valid @NotNull ConnectorModel model) {
         model.setId(UUID.randomUUID());
-        service.createConnector(model);
+        connectorService.createConnector(model);
         return ResponseEntity.ok().build();
     }
 }

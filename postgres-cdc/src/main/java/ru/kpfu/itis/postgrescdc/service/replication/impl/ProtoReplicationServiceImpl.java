@@ -1,4 +1,4 @@
-package ru.kpfu.itis.postgrescdc.service.connectors.impl;
+package ru.kpfu.itis.postgrescdc.service.replication.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,9 +12,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
-import ru.kpfu.itis.postgrescdc.service.SenderService;
-import ru.kpfu.itis.postgrescdc.service.connectors.ConnectorServiceImpl;
-import ru.kpfu.itis.postgrescdc.service.connectors.ProtoConnectorService;
+import ru.kpfu.itis.postgrescdc.service.ProducerService;
+import ru.kpfu.itis.postgrescdc.service.replication.ReplicationServiceImpl;
+import ru.kpfu.itis.postgrescdc.service.replication.ProtoReplicationService;
 
 import java.nio.ByteBuffer;
 import java.sql.Connection;
@@ -27,11 +27,9 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements ProtoConnectorService {
+public class ProtoReplicationServiceImpl extends ReplicationServiceImpl implements ProtoReplicationService {
 
-    private static final String SLOT_NAME = "cdc_postgres_proto_replication_slot";
-    private final SenderService sender;
-    private static final String PUBLICATION = "cdc_postgres_proto_pub";
+    private final ProducerService sender;
 
     private static String toString(ByteBuffer buffer) {
         int offset = buffer.arrayOffset();
@@ -42,12 +40,17 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
     }
 
     @Override
-    public void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin) throws Exception {
+    public void receiveChanges(Connection connection,
+                               Connection replicationConnection,
+                               boolean fromBegin,
+                               String slotName,
+                               String publicationName,
+                               String topic) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;
         if (fromBegin) {
-            lsn = getAllLSN(connection);
+            lsn = getAllLSN(connection, slotName);
         } else {
             lsn = getCurrentLSN(connection);
         }
@@ -57,12 +60,12 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
                         .getReplicationAPI()
                         .replicationStream()
                         .logical()
-                        .withSlotName(SLOT_NAME)
+                        .withSlotName(slotName)
                         .withStartPosition(lsn)
                         .withStatusInterval(10, TimeUnit.SECONDS)
                         .start();
         ByteBuffer buffer;
-
+        log.info(String.valueOf(stream.getLastReceiveLSN()));
         while (true) {
             buffer = stream.readPending();
             if (buffer == null) {
@@ -72,7 +75,7 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
 
             String changes = toString(buffer);
             log.info(changes);
-            sender.sendProtoAsync(changes.getBytes());
+            sender.sendProtoAsync(changes.getBytes(), topic);
 
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());
@@ -80,9 +83,9 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
 
     }
 
-    private LogSequenceNumber getAllLSN(Connection connection) throws SQLException {
+    private LogSequenceNumber getAllLSN(Connection connection, String slotName) throws SQLException {
         try (Statement st = connection.createStatement()) {
-            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_binary_changes('" + SLOT_NAME + "', null, null);")) {
+            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_binary_changes('" + slotName + "', null, null);")) {
 
                 if (rs.next()) {
                     String lsn = rs.getString(1);
@@ -115,17 +118,17 @@ public class ProtoConnectorServiceImpl extends ConnectorServiceImpl implements P
             return;
         }
         try {
-            if (!isReplicationSlotExists(SLOT_NAME, PluginEnum.decoderbufs.name(), connection)) {
-                createLogicalReplicationSlot(connection, SLOT_NAME, PluginEnum.decoderbufs.name());
+            if (!isReplicationSlotExists(connectorModel.getSlotName(), PluginEnum.decoderbufs.name(), connection)) {
+                createLogicalReplicationSlot(connection, connectorModel.getSlotName(), PluginEnum.decoderbufs.name());
                 try {
-                    dropPublication(connection, PUBLICATION);
+                    dropPublication(connection, connectorModel.getPublicationName());
                 } catch (PSQLException e) {
-                    throw new IllegalArgumentException(e);
+                    // ignore
                 }
-                createPublication(connection, PUBLICATION, connectorModel.isForAllTables(), connectorModel.getTables());
+                createPublication(connection, connectorModel.getPublicationName(), connectorModel.isForAllTables(), connectorModel.getTables());
             }
             Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin());
+            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getSlotName(), connectorModel.getPublicationName(), connectorModel.getTopicName());
 
         } catch (Exception e) {
             throw new IllegalStateException(e);

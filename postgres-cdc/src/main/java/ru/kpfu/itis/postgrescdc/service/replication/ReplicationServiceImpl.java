@@ -1,4 +1,4 @@
-package ru.kpfu.itis.postgrescdc.service.connectors;
+package ru.kpfu.itis.postgrescdc.service.replication;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 @Slf4j
-public abstract class ConnectorServiceImpl {
+public abstract class ReplicationServiceImpl {
 
     protected String createUrl(String host, String port, String database) {
         return "jdbc:postgresql://" + host + ':' + port + '/' + database;

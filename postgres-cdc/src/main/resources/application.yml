@@ -16,5 +16,17 @@ management:
 pulsar:
   producer:
     url: pulsar://localhost:6650
-    topic: json-changes
-    producer-name: changes-sender
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: qwerty1
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+
+  liquibase:
+    change-log: classpath:db/changelog.yml

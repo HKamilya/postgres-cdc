@@ -1,4 +1,4 @@
-package ru.kpfu.itis.postgrescdc.service.connectors.impl;
+package ru.kpfu.itis.postgrescdc.service.replication.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,9 +12,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
-import ru.kpfu.itis.postgrescdc.service.SenderService;
-import ru.kpfu.itis.postgrescdc.service.connectors.ConnectorServiceImpl;
-import ru.kpfu.itis.postgrescdc.service.connectors.Wal2JsonConnectorService;
+import ru.kpfu.itis.postgrescdc.service.ProducerService;
+import ru.kpfu.itis.postgrescdc.service.replication.ReplicationServiceImpl;
+import ru.kpfu.itis.postgrescdc.service.replication.Wal2JsonReplicationService;
 
 import java.nio.ByteBuffer;
 import java.sql.Connection;
@@ -27,13 +27,9 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implements Wal2JsonConnectorService {
+public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl implements Wal2JsonReplicationService {
 
-    private final SenderService sender;
-
-    private static final String SLOT_NAME = "cdc_postgres_wal2json_replication_slot";
-
-    private static final String PUBLICATION = "cdc_postgres_wal2json_pub";
+    private final ProducerService sender;
 
     private static String toString(ByteBuffer buffer) {
         int offset = buffer.arrayOffset();
@@ -44,12 +40,18 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
     }
 
     @Override
-    public void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin, PluginEnum plugin) throws Exception {
+    public void receiveChanges(Connection connection,
+                               Connection replicationConnection,
+                               boolean fromBegin,
+                               PluginEnum plugin,
+                               String slotName,
+                               String publicationName,
+                               String topic) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;
         if (fromBegin) {
-            lsn = getAllLSN(connection);
+            lsn = getAllLSN(connection, slotName);
         } else {
             lsn = getCurrentLSN(connection);
         }
@@ -59,7 +61,7 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
                         .getReplicationAPI()
                         .replicationStream()
                         .logical()
-                        .withSlotName(SLOT_NAME)
+                        .withSlotName(slotName)
                         .withStartPosition(lsn)
                         .withStatusInterval(10, TimeUnit.SECONDS)
                         .start();
@@ -74,19 +76,19 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
             String changes = toString(buffer);
             log.info(changes);
             if (plugin == PluginEnum.wal2json) {
-                sender.sendJsonAsync(changes);
+                sender.sendJsonAsync(changes, topic);
             }
             if (plugin == PluginEnum.avro) {
-                sender.sendAvroAsync(changes);
+                sender.sendAvroAsync(changes, topic);
             }
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());
         }
     }
 
-    private LogSequenceNumber getAllLSN(Connection connection) throws SQLException {
+    private LogSequenceNumber getAllLSN(Connection connection, String slotName) throws SQLException {
         try (Statement st = connection.createStatement()) {
-            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_changes('" + SLOT_NAME + "', null, null);")) {
+            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_changes('" + slotName + "', null, null);")) {
 
                 if (rs.next()) {
                     String lsn = rs.getString(1);
@@ -118,19 +120,19 @@ public class Wal2JsonConnectorServiceImpl extends ConnectorServiceImpl implement
             return;
         }
         try {
-            if (!isReplicationSlotExists(SLOT_NAME, PluginEnum.wal2json.name(), connection)) {
+            if (!isReplicationSlotExists(connectorModel.getSlotName(), PluginEnum.wal2json.name(), connection)) {
 
-                createLogicalReplicationSlot(connection, SLOT_NAME, PluginEnum.wal2json.name());
+                createLogicalReplicationSlot(connection, connectorModel.getSlotName(), PluginEnum.wal2json.name());
                 try {
-                    dropPublication(connection, PUBLICATION);
+                    dropPublication(connection, connectorModel.getPublicationName());
                 } catch (PSQLException e) {
-                    throw new IllegalArgumentException(e);
+                    // ignore
                 }
-                createPublication(connection, PUBLICATION, connectorModel.isForAllTables(), connectorModel.getTables());
+                createPublication(connection, connectorModel.getPublicationName(), connectorModel.isForAllTables(), connectorModel.getTables());
             }
-            if (!isReplicationSlotActive(connection, SLOT_NAME)) {
+            if (!isReplicationSlotActive(connection, connectorModel.getSlotName())) {
                 Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-                receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getPlugin());
+                receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getPlugin(), connectorModel.getSlotName(), connectorModel.getPublicationName(), connectorModel.getTopicName());
             }
 
         } catch (Exception e) {

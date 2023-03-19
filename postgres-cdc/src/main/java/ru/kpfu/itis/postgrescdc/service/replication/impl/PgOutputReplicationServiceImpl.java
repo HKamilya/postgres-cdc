@@ -1,4 +1,4 @@
-package ru.kpfu.itis.postgrescdc.service.connectors.impl;
+package ru.kpfu.itis.postgrescdc.service.replication.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,9 +12,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
-import ru.kpfu.itis.postgrescdc.service.SenderService;
-import ru.kpfu.itis.postgrescdc.service.connectors.ConnectorServiceImpl;
-import ru.kpfu.itis.postgrescdc.service.connectors.PgOutputConnectorService;
+import ru.kpfu.itis.postgrescdc.service.ProducerService;
+import ru.kpfu.itis.postgrescdc.service.replication.ReplicationServiceImpl;
+import ru.kpfu.itis.postgrescdc.service.replication.PgOutputReplicationService;
 
 import java.nio.ByteBuffer;
 import java.sql.Connection;
@@ -26,10 +26,8 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implements PgOutputConnectorService {
-    private static final String SLOT_NAME = "cdc_postgres_pgoutput_replication_slot";
-    private final SenderService sender;
-    private static final String PUBLICATION = "cdc_postgres_pgoutput_pub";
+public class PgOutputReplicationServiceImpl extends ReplicationServiceImpl implements PgOutputReplicationService {
+    private final ProducerService sender;
 
     private static String toString(ByteBuffer buffer) {
         int offset = buffer.arrayOffset();
@@ -40,12 +38,17 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
     }
 
     @Override
-    public void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin) throws Exception {
+    public void receiveChanges(Connection connection,
+                               Connection replicationConnection,
+                               boolean fromBegin,
+                               String slotName,
+                               String publicationName,
+                               String topic) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;
         if (fromBegin) {
-            lsn = getAllLSN(connection);
+            lsn = getAllLSN(connection, slotName, publicationName);
         } else {
             lsn = getCurrentLSN(connection);
         }
@@ -55,10 +58,10 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
                         .getReplicationAPI()
                         .replicationStream()
                         .logical()
-                        .withSlotName(SLOT_NAME)
+                        .withSlotName(slotName)
                         .withStartPosition(lsn)
                         .withSlotOption("proto_version", 1)
-                        .withSlotOption("publication_names", PUBLICATION)
+                        .withSlotOption("publication_names", publicationName)
                         .withStatusInterval(10, TimeUnit.SECONDS)
                         .start();
         ByteBuffer buffer;
@@ -71,7 +74,7 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
 
             String changes = toString(buffer);
             log.info(changes);
-            sender.sendByteAsync(changes.getBytes());
+            sender.sendByteAsync(changes.getBytes(), topic);
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());
         }
@@ -95,27 +98,27 @@ public class PgOutputConnectorServiceImpl extends ConnectorServiceImpl implement
             return;
         }
         try {
-            if (!isReplicationSlotExists(SLOT_NAME, PluginEnum.pgoutput.name(), connection)) {
+            if (!isReplicationSlotExists(connectorModel.getSlotName(), PluginEnum.pgoutput.name(), connection)) {
 
-                createLogicalReplicationSlot(connection, SLOT_NAME, PluginEnum.pgoutput.name());
+                createLogicalReplicationSlot(connection, connectorModel.getSlotName(), PluginEnum.pgoutput.name());
                 try {
-                    dropPublication(connection, PUBLICATION);
+                    dropPublication(connection, connectorModel.getPublicationName());
                 } catch (PSQLException e) {
-                    throw new IllegalArgumentException(e);
+                    // ignore
                 }
-                createPublication(connection, PUBLICATION, connectorModel.isForAllTables(), connectorModel.getTables());
+                createPublication(connection, connectorModel.getPublicationName(), connectorModel.isForAllTables(), connectorModel.getTables());
             }
             Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin());
+            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getSlotName(), connectorModel.getPublicationName(), connectorModel.getTopicName());
 
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
     }
 
-    private LogSequenceNumber getAllLSN(Connection connection) throws SQLException {
+    private LogSequenceNumber getAllLSN(Connection connection, String slotName, String publicationName) throws SQLException {
         try (Statement st = connection.createStatement()) {
-            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_binary_changes('" + SLOT_NAME + "', null, null, 'proto_version', '1', 'publication_names', '" + PUBLICATION + "');")) {
+            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_binary_changes('" + slotName + "', null, null, 'proto_version', '1', 'publication_names', '" + publicationName + "');")) {
 
                 if (rs.next()) {
                     String lsn = rs.getString(1);
