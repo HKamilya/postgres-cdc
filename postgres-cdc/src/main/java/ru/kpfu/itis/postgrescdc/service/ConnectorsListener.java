@@ -13,7 +13,7 @@ import ru.kpfu.itis.postgrescdc.service.replication.Wal2JsonReplicationService;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class MessageListener implements org.apache.pulsar.client.api.MessageListener<ConnectorModel> {
+public class ConnectorsListener implements org.apache.pulsar.client.api.MessageListener<ConnectorModel> {
     private final Wal2JsonReplicationService wal2JsonReplicationService;
     private final PgOutputReplicationService pgOutputReplicationService;
     private final ProtoReplicationService protoReplicationService;
@@ -32,24 +32,24 @@ public class MessageListener implements org.apache.pulsar.client.api.MessageList
             consumer.acknowledge(msg);
             switch (msg.getValue().getPlugin()) {
                 case pgoutput -> {
-//                    if (producerService.createByteProducer(msg.getValue().getTopicName())) {
+                    if (producerService.createByteProducer(msg.getValue().getTopicName())) {
                         pgOutputReplicationService.createConnection(msg.getValue());
-//                    }
+                    }
                 }
                 case wal2json -> {
-//                    if (producerService.createJsonProducer(msg.getValue().getTopicName())) {
+                    if (producerService.createJsonProducer(msg.getValue().getTopicName())) {
                         wal2JsonReplicationService.createConnection(msg.getValue());
-//                    }
+                    }
                 }
                 case avro -> {
-//                    if (producerService.createAvroProducer(msg.getValue().getTopicName())) {
+                    if (producerService.createAvroProducer(msg.getValue().getTopicName())) {
                         wal2JsonReplicationService.createConnection(msg.getValue());
-//                    }
+                    }
                 }
                 case decoderbufs -> {
-//                    if (producerService.createProtoProducer(msg.getValue().getTopicName())) {
-                        protoReplicationService.createConnection(msg.getValue());
-//                    }
+                    if (producerService.createProtoProducer(msg.getValue().getTopicName())) {
+                        wal2JsonReplicationService.createConnection(msg.getValue());
+                    }
                 }
             }
         } catch (Exception e) {
