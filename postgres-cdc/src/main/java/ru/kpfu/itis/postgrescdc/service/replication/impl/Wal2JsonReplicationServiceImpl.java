@@ -10,8 +10,13 @@ import org.postgresql.replication.PGReplicationStream;
 import org.postgresql.util.PSQLException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import ru.kpfu.itis.postgrescdc.entity.CdcInfoEntity;
+import ru.kpfu.itis.postgrescdc.entity.ChangeEntity;
+import ru.kpfu.itis.postgrescdc.entity.ConnectorEntity;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
+import ru.kpfu.itis.postgrescdc.repository.ChangeRepository;
+import ru.kpfu.itis.postgrescdc.repository.ConnectorRepository;
 import ru.kpfu.itis.postgrescdc.service.ProducerService;
 import ru.kpfu.itis.postgrescdc.service.replication.ReplicationServiceImpl;
 import ru.kpfu.itis.postgrescdc.service.replication.Wal2JsonReplicationService;
@@ -21,6 +26,10 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 
@@ -29,6 +38,8 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl implements Wal2JsonReplicationService {
 
+    private final ChangeRepository changeRepository;
+    private final ConnectorRepository connectorRepository;
     private final ProducerService sender;
 
     private static String toString(ByteBuffer buffer) {
@@ -46,7 +57,8 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
                                PluginEnum plugin,
                                String slotName,
                                String publicationName,
-                               String topic) throws Exception {
+                               String topic,
+                               UUID connectorId) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;
@@ -72,18 +84,51 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
                 TimeUnit.MILLISECONDS.sleep(10L);
                 continue;
             }
-
             String changes = toString(buffer);
             log.info(changes);
+            Optional<ConnectorEntity> connector = connectorRepository.findById(connectorId);
+            if (connector.isPresent()) {
+                updateCdcInfo(connector.get(), stream.getLastReceiveLSN(), publicationName, slotName, changes);
+            }
             if (plugin == PluginEnum.wal2json) {
                 sender.sendJsonAsync(changes, topic);
             }
             if (plugin == PluginEnum.avro) {
                 sender.sendAvroAsync(changes, topic);
             }
+            if (plugin == PluginEnum.decoderbufs) {
+                sender.sendProtoAsync(changes, topic);
+            }
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());
         }
+    }
+
+    private void updateCdcInfo(ConnectorEntity connector, LogSequenceNumber lastReceiveLSN, String publicationName, String slotName, String changes) {
+        LocalDateTime now = LocalDateTime.now(Clock.systemUTC());
+        CdcInfoEntity cdcInfoEntity = connector.getCdcInfoEntity();
+        UUID lastLsnId = UUID.randomUUID();
+        if (connector.getCdcInfoEntity() == null) {
+            cdcInfoEntity = new CdcInfoEntity();
+            cdcInfoEntity.setId(UUID.randomUUID());
+            cdcInfoEntity.setSlotName(slotName);
+            cdcInfoEntity.setPublicationName(publicationName);
+            cdcInfoEntity.setCreateDt(now);
+            cdcInfoEntity.setChangeDt(now);
+            connector.setCdcInfoEntity(cdcInfoEntity);
+            connector.setChangeDt(now);
+            connectorRepository.save(connector);
+        }
+        cdcInfoEntity.setLastAppliedChangeId(lastLsnId);
+        cdcInfoEntity.setChangeDt(now);
+        ChangeEntity changeEntity = new ChangeEntity();
+        changeEntity.setId(lastLsnId);
+        changeEntity.setCdcInfoEntity(cdcInfoEntity);
+        changeEntity.setLsn(lastReceiveLSN.toString());
+        changeEntity.setChanges(changes);
+        changeEntity.setCreateDt(now);
+        changeEntity.setChangeDt(now);
+        changeRepository.save(changeEntity);
     }
 
     private LogSequenceNumber getAllLSN(Connection connection, String slotName) throws SQLException {
@@ -132,7 +177,7 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
             }
             if (!isReplicationSlotActive(connection, connectorModel.getSlotName())) {
                 Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-                receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getPlugin(), connectorModel.getSlotName(), connectorModel.getPublicationName(), connectorModel.getTopicName());
+                receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getPlugin(), connectorModel.getSlotName(), connectorModel.getPublicationName(), connectorModel.getTopicName(), connectorModel.getId());
             }
 
         } catch (Exception e) {

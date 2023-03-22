@@ -1,0 +1,19 @@
+syntax = "proto2";
+option java_package = "ru.kpfu.itis.postgrescdc.model";
+option java_outer_classname = "ChangesProto";
+package proto;
+
+message Changes {
+  message Change {
+    required string kind = 1;
+    required string schema = 2;
+    required string table = 3;
+    message Oldkeys {
+      repeated string keynames = 1;
+      repeated string keytypes = 2;
+      repeated int64 keyvalues = 3;
+    }
+    optional Oldkeys oldkeys = 4;
+  }
+  repeated Change change = 1;
+}

@@ -75,7 +75,7 @@ public class ProtoReplicationServiceImpl extends ReplicationServiceImpl implemen
 
             String changes = toString(buffer);
             log.info(changes);
-            sender.sendProtoAsync(changes.getBytes(), topic);
+//            sender.sendProtoAsync(changes.getBytes(), topic);
 
             stream.setAppliedLSN(stream.getLastReceiveLSN());
             stream.setFlushedLSN(stream.getLastReceiveLSN());

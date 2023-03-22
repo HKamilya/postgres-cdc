@@ -18,6 +18,8 @@ public class Changes {
         private String kind;
         private String schema;
         private String table;
+        @JsonProperty("oldkeys")
+        public OldKeys oldKeys;
         @JsonProperty("columnnames")
         private List<String> columnNames;
         @JsonProperty("columntypes")
@@ -25,5 +27,15 @@ public class Changes {
         @JsonProperty("columnvalues")
         private List<Object> columnValues;
     }
+
+    public static class OldKeys {
+        @JsonProperty("keynames")
+        public List<String> keyNames;
+        @JsonProperty("keytypes")
+        public List<String> keyTypes;
+        @JsonProperty("keyvalues")
+        public List<Object> keyValues;
+    }
+
 }
 
