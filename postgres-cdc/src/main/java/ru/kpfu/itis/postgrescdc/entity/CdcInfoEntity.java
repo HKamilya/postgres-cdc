@@ -3,10 +3,7 @@ package ru.kpfu.itis.postgrescdc.entity;
 import lombok.Getter;
 import lombok.Setter;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -22,8 +19,9 @@ public class CdcInfoEntity {
     private String publicationName;
     @Column(name = "slot_name")
     private String slotName;
-    @Column(name = "last_applied_change_id")
-    private UUID lastAppliedChangeId;
+    @OneToOne
+    @JoinColumn(name = "last_applied_change_id")
+    private ChangeEntity lastAppliedChange;
     @Column(name = "create_dt")
     private LocalDateTime createDt;
     @Column(name = "change_dt")

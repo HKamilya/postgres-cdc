@@ -45,5 +45,7 @@ public class ConnectorEntity {
     @OneToOne
     @JoinColumn(name = "cdc_info_id")
     private CdcInfoEntity cdcInfoEntity;
+    @Column(name = "is_active")
+    private Boolean isActive;
 
 }

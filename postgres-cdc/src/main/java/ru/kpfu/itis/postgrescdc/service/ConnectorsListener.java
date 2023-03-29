@@ -6,8 +6,6 @@ import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.springframework.stereotype.Component;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
-import ru.kpfu.itis.postgrescdc.service.replication.PgOutputReplicationService;
-import ru.kpfu.itis.postgrescdc.service.replication.ProtoReplicationService;
 import ru.kpfu.itis.postgrescdc.service.replication.Wal2JsonReplicationService;
 
 @Component
@@ -15,8 +13,6 @@ import ru.kpfu.itis.postgrescdc.service.replication.Wal2JsonReplicationService;
 @RequiredArgsConstructor
 public class ConnectorsListener implements org.apache.pulsar.client.api.MessageListener<ConnectorModel> {
     private final Wal2JsonReplicationService wal2JsonReplicationService;
-    private final PgOutputReplicationService pgOutputReplicationService;
-    private final ProtoReplicationService protoReplicationService;
     private final ProducerService producerService;
 
     @Override
@@ -33,7 +29,7 @@ public class ConnectorsListener implements org.apache.pulsar.client.api.MessageL
             switch (msg.getValue().getPlugin()) {
                 case pgoutput -> {
                     if (producerService.createByteProducer(msg.getValue().getTopicName())) {
-                        pgOutputReplicationService.createConnection(msg.getValue());
+                        wal2JsonReplicationService.createConnection(msg.getValue());
                     }
                 }
                 case wal2json -> {

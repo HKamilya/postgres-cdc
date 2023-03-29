@@ -6,10 +6,12 @@ import org.postgresql.PGProperty;
 import org.postgresql.core.BaseConnection;
 import org.postgresql.core.ServerVersion;
 import org.postgresql.replication.LogSequenceNumber;
+import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 
 import java.sql.*;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -20,7 +22,7 @@ public abstract class ReplicationServiceImpl {
         return "jdbc:postgresql://" + host + ':' + port + '/' + database;
     }
 
-    protected Connection createConnection(String user, String password, String host, String port, String database) throws SQLException {
+    public Connection createConnection(String user, String password, String host, String port, String database) throws SQLException {
         try {
             return DriverManager.getConnection(createUrl(host, port, database), user, password);
         } catch (SQLException ex) {
@@ -157,4 +159,13 @@ public abstract class ReplicationServiceImpl {
         PGProperty.PREFER_QUERY_MODE.set(properties, "simple");
         return DriverManager.getConnection(createUrl(host, port, database), properties);
     }
+
+    public abstract void receiveChangesFromCurrentLsn(Connection connection,
+                                                      Connection replicationConnection,
+                                                      PluginEnum plugin,
+                                                      String slotName,
+                                                      String publicationName,
+                                                      String topic,
+                                                      UUID connectorId,
+                                                      String lsnString) throws Exception;
 }

@@ -42,7 +42,7 @@ public class ProducerService {
                 .topic(topic)
                 .producerName(UUID.randomUUID().toString())
                 .create()) {
-            producer.sendAsync(changes).thenAccept(msgId -> log.info("Json message with ID {} successfully sent", msgId));
+            producer.sendAsync(changes).thenAccept(msgId -> log.info("Avro message with ID {} successfully sent", msgId));
             producer.flush();
         } catch (PulsarClientException e) {
             throw new IllegalStateException(e);

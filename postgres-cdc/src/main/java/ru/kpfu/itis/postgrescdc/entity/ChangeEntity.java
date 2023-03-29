@@ -17,13 +17,12 @@ public class ChangeEntity {
     private UUID id;
     @Column(name = "lsn")
     private String lsn;
-    @Column(name = "chnages")
+    @Column(name = "changes", columnDefinition = "TEXT")
     private String changes;
     @Column(name = "create_dt")
     private LocalDateTime createDt;
     @Column(name = "change_dt")
     private LocalDateTime changeDt;
-    @ManyToOne
-    @JoinColumn(name = "cdc_info_entity")
-    private CdcInfoEntity cdcInfoEntity;
+    @Column(name = "cdc_info_entity")
+    private UUID cdcInfoEntityId;
 }
