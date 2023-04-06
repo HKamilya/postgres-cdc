@@ -167,5 +167,5 @@ public abstract class ReplicationServiceImpl {
                                                       String publicationName,
                                                       String topic,
                                                       UUID connectorId,
-                                                      String lsnString) throws Exception;
+                                                      String lsnString, String tables) throws Exception;
 }

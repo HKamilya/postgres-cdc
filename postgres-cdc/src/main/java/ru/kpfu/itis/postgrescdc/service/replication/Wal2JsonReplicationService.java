@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface Wal2JsonReplicationService {
 
-    void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin, PluginEnum plugin, String slotName, String publicationName, String topic, UUID connectorId) throws Exception;
+    void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin, PluginEnum plugin, String slotName, String publicationName, String topic, UUID connectorId, String tables) throws Exception;
 
     void createConnection(ConnectorModel connectorModel);
 
