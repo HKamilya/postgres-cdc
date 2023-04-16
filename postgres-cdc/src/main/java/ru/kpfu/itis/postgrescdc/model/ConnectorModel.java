@@ -11,7 +11,7 @@ import java.util.UUID;
 public class ConnectorModel {
     private UUID id;
     @NotNull
-    private PluginEnum plugin;
+    private DataTypeEnum dataType;
     @NotNull
     private String host;
     private String port;

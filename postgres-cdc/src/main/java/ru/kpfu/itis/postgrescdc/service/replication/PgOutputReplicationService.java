@@ -7,7 +7,7 @@ import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import java.sql.Connection;
 import java.util.UUID;
 
-public interface PgOutputReplicationService {
+public interface PgOutputReplicationService extends ReplicationService {
 
     void receiveChanges(Connection connection, Connection replicationConnection, boolean fromBegin, String slotName, String publicationName, String topic, UUID id) throws Exception;
 

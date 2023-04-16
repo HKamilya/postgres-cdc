@@ -26,13 +26,13 @@ public class ConnectorsListener implements org.apache.pulsar.client.api.MessageL
             log.info("Message received: {}", new String(msg.getData()));
             log.info("####################################################################################");
             consumer.acknowledge(msg);
-            switch (msg.getValue().getPlugin()) {
-                case pgoutput -> {
+            switch (msg.getValue().getDataType()) {
+                case bytes -> {
                     if (producerService.createByteProducer(msg.getValue().getTopicName())) {
                         wal2JsonReplicationService.createConnection(msg.getValue());
                     }
                 }
-                case wal2json -> {
+                case json -> {
                     if (producerService.createJsonProducer(msg.getValue().getTopicName())) {
                         wal2JsonReplicationService.createConnection(msg.getValue());
                     }
@@ -42,7 +42,7 @@ public class ConnectorsListener implements org.apache.pulsar.client.api.MessageL
                         wal2JsonReplicationService.createConnection(msg.getValue());
                     }
                 }
-                case decoderbufs -> {
+                case proto -> {
                     if (producerService.createProtoProducer(msg.getValue().getTopicName())) {
                         wal2JsonReplicationService.createConnection(msg.getValue());
                     }

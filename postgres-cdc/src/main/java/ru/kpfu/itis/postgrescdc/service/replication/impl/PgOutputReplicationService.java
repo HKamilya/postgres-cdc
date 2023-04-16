@@ -10,34 +10,30 @@ import org.postgresql.replication.PGReplicationStream;
 import org.postgresql.util.PSQLException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import ru.kpfu.itis.postgrescdc.ConverterUtils;
 import ru.kpfu.itis.postgrescdc.entity.ConnectorEntity;
-import ru.kpfu.itis.postgrescdc.model.Changes;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 import ru.kpfu.itis.postgrescdc.service.ConnectorService;
 import ru.kpfu.itis.postgrescdc.service.ProducerService;
-import ru.kpfu.itis.postgrescdc.service.replication.ReplicationServiceImpl;
-import ru.kpfu.itis.postgrescdc.service.replication.Wal2JsonReplicationService;
 
 import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.*;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl implements Wal2JsonReplicationService {
-
-    private final ConnectorService connectorService;
+public class PgOutputReplicationService implements ru.kpfu.itis.postgrescdc.service.replication.PgOutputReplicationService {
     private final ProducerService sender;
+    private final ConnectorService connectorService;
 
     @Async
+    @Override
     public void createConnection(ConnectorModel connectorModel) {
         Connection connection;
 
@@ -53,9 +49,9 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
             return;
         }
         try {
-            if (!isReplicationSlotExists(connectorModel.getSlotName(), PluginEnum.wal2json.name(), connection)) {
+            if (!isReplicationSlotExists(connectorModel.getSlotName(), PluginEnum.pgoutput.name(), connection)) {
 
-                createLogicalReplicationSlot(connection, connectorModel.getSlotName(), PluginEnum.wal2json.name());
+                createLogicalReplicationSlot(connection, connectorModel.getSlotName(), PluginEnum.pgoutput.name());
                 try {
                     dropPublication(connection, connectorModel.getPublicationName());
                 } catch (PSQLException e) {
@@ -63,10 +59,8 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
                 }
                 createPublication(connection, connectorModel.getPublicationName(), connectorModel.isForAllTables(), connectorModel.getTables());
             }
-            if (!isReplicationSlotActive(connection, connectorModel.getSlotName())) {
-                Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
-                receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getPlugin(), connectorModel.getSlotName(), connectorModel.getPublicationName(), connectorModel.getTopicName(), connectorModel.getId(), connectorModel.getTables());
-            }
+            Connection replicationConnection = openReplicationConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
+            receiveChanges(connection, replicationConnection, connectorModel.isFromBegin(), connectorModel.getSlotName(), connectorModel.getPublicationName(), connectorModel.getTopicName(), connectorModel.getId());
 
         } catch (Exception e) {
             throw new IllegalStateException(e);
@@ -77,14 +71,12 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
     public void receiveChanges(Connection connection,
                                Connection replicationConnection,
                                boolean fromBegin,
-                               PluginEnum plugin,
                                String slotName,
                                String publicationName,
-                               String topic,
-                               UUID connectorId, String tableNames) throws Exception {
+                               String topic, UUID connectorId) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
+
         LogSequenceNumber lsn;
-        String[] tables = tableNames.split(",");
         if (fromBegin) {
             lsn = getAllLSN(connection, slotName, publicationName);
         } else {
@@ -98,6 +90,8 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
                         .logical()
                         .withSlotName(slotName)
                         .withStartPosition(lsn)
+                        .withSlotOption("proto_version", 1)
+                        .withSlotOption("publication_names", publicationName)
                         .withStatusInterval(10, TimeUnit.SECONDS)
                         .start();
         ByteBuffer buffer;
@@ -107,24 +101,20 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
                 TimeUnit.MILLISECONDS.sleep(10L);
                 continue;
             }
-            String changes = toString(buffer);
-            boolean containsTableChanges = checkContainsTable(tables, changes);
-            if (containsTableChanges) {
+            Optional<ConnectorEntity> connector = connectorService.loadConnector(connectorId);
+            if (connector.isPresent() && connector.get().getIsActive()) {
+
+                String changes = toString(buffer);
                 log.info(changes);
-                Optional<ConnectorEntity> connector = connectorService.loadConnector(connectorId);
-                connector.ifPresent(connectorEntity -> connectorService.updateCdcInfo(connectorEntity, stream.getLastReceiveLSN(), publicationName, slotName, changes));
-                if (plugin == PluginEnum.wal2json) {
-                    sender.sendJsonAsync(changes, topic);
-                }
-                if (plugin == PluginEnum.avro) {
-                    sender.sendAvroAsync(changes, topic);
-                }
-                if (plugin == PluginEnum.decoderbufs) {
-                    sender.sendProtoAsync(changes, topic);
-                }
+                connector.ifPresent(connectorEntity -> connectorService.updateCdcInfo(connectorId, stream.getLastReceiveLSN(), publicationName, slotName, changes));
+                sender.sendByteAsync(changes.getBytes(), topic);
+                stream.setAppliedLSN(stream.getLastReceiveLSN());
+            } else {
+                stream.close();
+                break;
             }
-            stream.setAppliedLSN(stream.getLastReceiveLSN());
         }
+
     }
 
     @Async
@@ -155,22 +145,15 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
     }
 
     @Override
-    public void receiveChangesFromCurrentLsn(Connection connection,
-                                             Connection replicationConnection,
-                                             PluginEnum plugin,
-                                             String slotName,
-                                             String publicationName,
-                                             String topic,
-                                             UUID connectorId,
-                                             String lsnString, String tableNames) throws Exception {
+    public void receiveChangesFromCurrentLsn(Connection connection, Connection replicationConnection, PluginEnum plugin, String slotName, String publicationName, String topic, UUID connectorId, String lsnString, String tables) throws Exception {
+        PGConnection pgConnection = (PGConnection) replicationConnection;
+
         LogSequenceNumber lsn;
-        String[] tables = tableNames.split(",");
         if (lsnString == null) {
             lsn = getCurrentLSN(connection);
         } else {
             lsn = LogSequenceNumber.valueOf(lsnString);
         }
-        PGConnection pgConnection = (PGConnection) replicationConnection;
 
         PGReplicationStream stream =
                 pgConnection
@@ -179,6 +162,8 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
                         .logical()
                         .withSlotName(slotName)
                         .withStartPosition(lsn)
+                        .withSlotOption("proto_version", 1)
+                        .withSlotOption("publication_names", publicationName)
                         .withStatusInterval(10, TimeUnit.SECONDS)
                         .start();
         ByteBuffer buffer;
@@ -188,40 +173,24 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
                 TimeUnit.MILLISECONDS.sleep(10L);
                 continue;
             }
-            String changes = toString(buffer);
-            boolean containsTableChanges = checkContainsTable(tables, changes);
-            if (containsTableChanges) {
-                log.info(changes);
-                Optional<ConnectorEntity> connector = connectorService.loadConnector(connectorId);
-                connector.ifPresent(connectorEntity -> connectorService.updateCdcInfo(connectorEntity, stream.getLastReceiveLSN(), publicationName, slotName, changes));
-                if (plugin == PluginEnum.wal2json) {
-                    sender.sendJsonAsync(changes, topic);
-                }
-                if (plugin == PluginEnum.avro) {
-                    sender.sendAvroAsync(changes, topic);
-                }
-                if (plugin == PluginEnum.decoderbufs) {
-                    sender.sendProtoAsync(changes, topic);
-                }
-            }
-            stream.setAppliedLSN(stream.getLastReceiveLSN());
-        }
-    }
+            Optional<ConnectorEntity> connector = connectorService.loadConnector(connectorId);
+            if (connector.isPresent() && connector.get().getIsActive()) {
 
-    private boolean checkContainsTable(String[] tables, String changes) {
-        if (tables.length > 0) {
-            Changes obj = ConverterUtils.toObject(changes);
-            return obj.getChange().stream()
-                    .map(Changes.Change::getTable)
-                    .anyMatch(new HashSet<>(List.of(tables))
-                            ::contains);
+                String changes = toString(buffer);
+                log.info(changes);
+                connector.ifPresent(connectorEntity -> connectorService.updateCdcInfo(connectorId, stream.getLastReceiveLSN(), publicationName, slotName, changes));
+                sender.sendByteAsync(changes.getBytes(), topic);
+                stream.setAppliedLSN(stream.getLastReceiveLSN());
+            } else {
+                stream.close();
+                break;
+            }
         }
-        return true;
     }
 
     private LogSequenceNumber getAllLSN(Connection connection, String slotName, String publicationName) throws SQLException {
         try (Statement st = connection.createStatement()) {
-            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_changes('" + slotName + "', null, null);")) {
+            try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_binary_changes('" + slotName + "', null, null, 'proto_version', '1', 'publication_names', '" + publicationName + "');")) {
 
                 if (rs.next()) {
                     String lsn = rs.getString(1);
@@ -236,7 +205,6 @@ public class Wal2JsonReplicationServiceImpl extends ReplicationServiceImpl imple
     private boolean isServerCompatible(Connection connection) {
         return ((BaseConnection) connection).haveMinimumServerVersion(ServerVersion.v9_5);
     }
-
 
     private static String toString(ByteBuffer buffer) {
         int offset = buffer.arrayOffset();

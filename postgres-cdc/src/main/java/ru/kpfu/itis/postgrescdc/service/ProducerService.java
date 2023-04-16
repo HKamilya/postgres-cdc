@@ -83,7 +83,7 @@ public class ProducerService {
         try {
             Producer<Changes> producer = pulsarClient.newProducer(JSONSchema.of(Changes.class))
                     .topic(topic)
-                    .producerName("json-producer")
+                    .producerName(UUID.randomUUID().toString())
                     .create();
             return producer.isConnected();
         } catch (PulsarClientException e) {
@@ -96,7 +96,7 @@ public class ProducerService {
         try {
             Producer<Changes> producer = pulsarClient.newProducer(Schema.AVRO(Changes.class))
                     .topic(topic)
-                    .producerName("arvo-producer")
+                    .producerName(UUID.randomUUID().toString())
                     .create();
             return producer.isConnected();
         } catch (PulsarClientException e) {
@@ -108,7 +108,7 @@ public class ProducerService {
         try {
             Producer<byte[]> producer = pulsarClient.newProducer(Schema.BYTES)
                     .topic(topic)
-                    .producerName("proto-producer")
+                    .producerName(UUID.randomUUID().toString())
                     .create();
             return producer.isConnected();
         } catch (PulsarClientException e) {
@@ -120,7 +120,7 @@ public class ProducerService {
         try {
             Producer<byte[]> producer = pulsarClient.newProducer(Schema.BYTES)
                     .topic(topic)
-                    .producerName("byte-producer")
+                    .producerName(UUID.randomUUID().toString())
                     .create();
             return producer.isConnected();
         } catch (PulsarClientException e) {

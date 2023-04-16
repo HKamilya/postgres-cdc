@@ -2,6 +2,7 @@ package ru.kpfu.itis.postgrescdc.entity;
 
 import lombok.Getter;
 import lombok.Setter;
+import ru.kpfu.itis.postgrescdc.model.DataTypeEnum;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 
 import javax.persistence.*;
@@ -16,6 +17,8 @@ public class ConnectorEntity {
     @Id
     @Column(name = "id")
     private UUID id;
+    @Column(name = "data_type")
+    private DataTypeEnum dataType;
     @Column(name = "plugin")
     private PluginEnum plugin;
     @Column(name = "host")
@@ -42,7 +45,7 @@ public class ConnectorEntity {
     private LocalDateTime createDt;
     @Column(name = "change_dt")
     private LocalDateTime changeDt;
-    @OneToOne
+    @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "cdc_info_id")
     private CdcInfoEntity cdcInfoEntity;
     @Column(name = "is_active")

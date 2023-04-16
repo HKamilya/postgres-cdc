@@ -1,6 +1,5 @@
 package ru.kpfu.itis.postgrescdc.service.replication;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.postgresql.PGProperty;
 import org.postgresql.core.BaseConnection;
@@ -15,14 +14,13 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-@Slf4j
-public abstract class ReplicationServiceImpl {
+public interface ReplicationService {
 
-    protected String createUrl(String host, String port, String database) {
+    default String createUrl(String host, String port, String database) {
         return "jdbc:postgresql://" + host + ':' + port + '/' + database;
     }
 
-    public Connection createConnection(String user, String password, String host, String port, String database) throws SQLException {
+    default Connection createConnection(String user, String password, String host, String port, String database) throws SQLException {
         try {
             return DriverManager.getConnection(createUrl(host, port, database), user, password);
         } catch (SQLException ex) {
@@ -32,7 +30,20 @@ public abstract class ReplicationServiceImpl {
 
     }
 
-    protected void dropPublication(Connection connection, String publication) throws SQLException {
+    default void dropReplication(String user, String password, String host, String port, String database, String slotName) {
+        try (Connection connection = createConnection(user, password, host, port, database)) {
+            try (PreparedStatement preparedStatement =
+                         connection.prepareStatement("select pg_drop_replication_slot('" + slotName + "')")) {
+                preparedStatement.execute();
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+
+    }
+
+
+    default void dropPublication(Connection connection, String publication) throws SQLException {
 
         try (PreparedStatement preparedStatement =
                      connection.prepareStatement("DROP PUBLICATION " + publication)) {
@@ -40,7 +51,7 @@ public abstract class ReplicationServiceImpl {
         }
     }
 
-    protected void createPublication(Connection connection, String publication, boolean forAllTables, String tables) throws SQLException {
+    default void createPublication(Connection connection, String publication, boolean forAllTables, String tables) throws SQLException {
         if (StringUtils.isNotBlank(tables)) {
             try (PreparedStatement preparedStatement =
                          connection.prepareStatement("CREATE PUBLICATION " + publication + " FOR TABLE " + tables)) {
@@ -55,7 +66,7 @@ public abstract class ReplicationServiceImpl {
         }
     }
 
-    protected void createLogicalReplicationSlot(Connection connection, String slotName, String outputPlugin) throws InterruptedException, SQLException, TimeoutException {
+    default void createLogicalReplicationSlot(Connection connection, String slotName, String outputPlugin) throws InterruptedException, SQLException, TimeoutException {
         //drop previous slot
         dropReplicationSlot(connection, slotName);
 
@@ -65,15 +76,15 @@ public abstract class ReplicationServiceImpl {
             preparedStatement.setString(2, outputPlugin);
             try (ResultSet rs = preparedStatement.executeQuery()) {
                 while (rs.next()) {
-                    log.info("Slot Name: " + rs.getString(1));
-                    log.info("Xlog Position: " + rs.getString(2));
+                    System.out.println("Slot Name: " + rs.getString(1));
+                    System.out.println("Xlog Position: " + rs.getString(2));
                 }
             }
 
         }
     }
 
-    public void dropReplicationSlot(Connection connection, String slotName)
+    default void dropReplicationSlot(Connection connection, String slotName)
             throws SQLException, InterruptedException, TimeoutException {
         try (PreparedStatement preparedStatement = connection.prepareStatement(
                 "SELECT pg_terminate_backend(active_pid) FROM pg_replication_slots "
@@ -110,7 +121,7 @@ public abstract class ReplicationServiceImpl {
         }
     }
 
-    protected boolean isReplicationSlotExists(String slotName, String plugin, Connection connection) {
+    default boolean isReplicationSlotExists(String slotName, String plugin, Connection connection) {
         try (Statement st = connection.createStatement()) {
             try (ResultSet rs = st.executeQuery("select slot_name, plugin from pg_replication_slots")) {
                 if (rs.next()) {
@@ -123,7 +134,7 @@ public abstract class ReplicationServiceImpl {
         }
     }
 
-    public boolean isReplicationSlotActive(Connection connection, String slotName)
+    default boolean isReplicationSlotActive(Connection connection, String slotName)
             throws SQLException {
 
         try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT active FROM pg_replication_slots WHERE slot_name = ?")) {
@@ -134,7 +145,7 @@ public abstract class ReplicationServiceImpl {
         }
     }
 
-    protected LogSequenceNumber getCurrentLSN(Connection connection) throws SQLException {
+    default LogSequenceNumber getCurrentLSN(Connection connection) throws SQLException {
         try (Statement st = connection.createStatement()) {
             try (ResultSet rs = st.executeQuery("select "
                     + (((BaseConnection) connection).haveMinimumServerVersion(ServerVersion.v10)
@@ -150,7 +161,7 @@ public abstract class ReplicationServiceImpl {
         }
     }
 
-    protected Connection openReplicationConnection(String user, String password, String host, String port, String database) throws Exception {
+    default Connection openReplicationConnection(String user, String password, String host, String port, String database) throws Exception {
         Properties properties = new Properties();
         properties.setProperty("user", user);
         properties.setProperty("password", password);
@@ -160,12 +171,12 @@ public abstract class ReplicationServiceImpl {
         return DriverManager.getConnection(createUrl(host, port, database), properties);
     }
 
-    public abstract void receiveChangesFromCurrentLsn(Connection connection,
-                                                      Connection replicationConnection,
-                                                      PluginEnum plugin,
-                                                      String slotName,
-                                                      String publicationName,
-                                                      String topic,
-                                                      UUID connectorId,
-                                                      String lsnString, String tables) throws Exception;
+    void receiveChangesFromCurrentLsn(Connection connection,
+                                      Connection replicationConnection,
+                                      PluginEnum plugin,
+                                      String slotName,
+                                      String publicationName,
+                                      String topic,
+                                      UUID connectorId,
+                                      String lsnString, String tables) throws Exception;
 }
