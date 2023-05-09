@@ -50,5 +50,7 @@ public class ConnectorEntity {
     private CdcInfoEntity cdcInfoEntity;
     @Column(name = "is_active")
     private Boolean isActive;
+    @Column(name = "save_changes")
+    private Boolean saveChanges;
 
 }

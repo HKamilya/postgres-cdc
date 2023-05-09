@@ -7,7 +7,6 @@ import ru.kpfu.itis.postgrescdc.entity.CdcInfoEntity;
 import ru.kpfu.itis.postgrescdc.entity.ChangeEntity;
 import ru.kpfu.itis.postgrescdc.entity.ConnectorEntity;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
-import ru.kpfu.itis.postgrescdc.model.DataTypeEnum;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 import ru.kpfu.itis.postgrescdc.repository.CdcInfoRepository;
 import ru.kpfu.itis.postgrescdc.repository.ChangeRepository;
@@ -47,11 +46,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorEntity.setDatabase(model.getDatabase());
         connectorEntity.setUsername(model.getUser());
         connectorEntity.setPassword(model.getPassword());
-        if (model.getDataType() == DataTypeEnum.bytes) {
-            connectorEntity.setPlugin(PluginEnum.pgoutput);
-        } else {
-            connectorEntity.setPlugin(PluginEnum.wal2json);
-        }
+        connectorEntity.setPlugin(PluginEnum.wal2json);
         connectorEntity.setDataType(model.getDataType());
         connectorEntity.setFromBegin(model.isFromBegin());
         connectorEntity.setForAllTables(model.isForAllTables());
@@ -61,6 +56,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorEntity.setChangeDt(now);
         connectorEntity.setCdcInfoEntity(cdcInfoEntity);
         connectorEntity.setIsActive(true);
+        connectorEntity.setSaveChanges(model.isSaveChanges());
 
         connectorRepository.save(connectorEntity);
         model.setId(connectorEntity.getId());
@@ -87,17 +83,19 @@ public class ConnectorServiceImpl implements ConnectorService {
                 connector.setChangeDt(now);
                 connectorRepository.save(connector);
             }
-            ChangeEntity changeEntity = new ChangeEntity();
-            changeEntity.setId(lastLsnId);
-            changeEntity.setCdcInfoEntityId(cdcInfoEntity.getId());
-            changeEntity.setLsn(lastReceiveLSN.asString());
-            changeEntity.setChanges(changes);
-            changeEntity.setCreateDt(now);
-            changeEntity.setChangeDt(now);
-            changeRepository.save(changeEntity);
-            cdcInfoEntity.setLastAppliedChange(changeEntity);
-            cdcInfoEntity.setChangeDt(now);
-            cdcInfoRepository.save(cdcInfoEntity);
+            if (connector.getSaveChanges()) {
+                ChangeEntity changeEntity = new ChangeEntity();
+                changeEntity.setId(lastLsnId);
+                changeEntity.setCdcInfoEntityId(cdcInfoEntity.getId());
+                changeEntity.setLsn(lastReceiveLSN.asString());
+                changeEntity.setChanges(changes);
+                changeEntity.setCreateDt(now);
+                changeEntity.setChangeDt(now);
+                changeRepository.save(changeEntity);
+                cdcInfoEntity.setLastAppliedChange(changeEntity.getLsn());
+                cdcInfoEntity.setChangeDt(now);
+                cdcInfoRepository.save(cdcInfoEntity);
+            }
         } else {
             throw new IllegalArgumentException();
         }

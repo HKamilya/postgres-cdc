@@ -27,7 +27,6 @@ public class Changes {
         @JsonProperty("columnvalues")
         private List<Object> columnValues;
     }
-
     public static class OldKeys {
         @JsonProperty("keynames")
         public List<String> keyNames;

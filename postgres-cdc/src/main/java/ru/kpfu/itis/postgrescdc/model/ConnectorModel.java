@@ -28,5 +28,6 @@ public class ConnectorModel {
     private String slotName;
     private String publicationName;
     private String topicName;
+    private boolean saveChanges;
 
 }

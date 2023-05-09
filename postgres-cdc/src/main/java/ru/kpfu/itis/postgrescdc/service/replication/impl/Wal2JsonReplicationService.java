@@ -18,13 +18,14 @@ import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 import ru.kpfu.itis.postgrescdc.service.ConnectorService;
 import ru.kpfu.itis.postgrescdc.service.ProducerService;
 
+import java.net.ConnectException;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -37,10 +38,12 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
 
     private final ConnectorService connectorService;
     private final ProducerService sender;
+    private static final Integer RETRY_CONNECTION_COUNT = 3;
 
     @Async
     public void createConnection(ConnectorModel connectorModel) {
-        Connection connection;
+        int retryCount = RETRY_CONNECTION_COUNT;
+        Connection connection = null;
 
         try {
             connection = createConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
@@ -50,7 +53,19 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
                 System.exit(-1);
             }
         } catch (SQLException ex) {
-            ex.printStackTrace();
+            if (ex.getCause() instanceof ConnectException) {
+                while (retryCount > 0) {
+                    try {
+                        connection = createConnection(connectorModel.getUser(), connectorModel.getPassword(), connectorModel.getHost(), connectorModel.getPort(), connectorModel.getDatabase());
+                    } catch (SQLException e) {
+                        retryCount--;
+                        e.printStackTrace();
+                    }
+                }
+            }
+            if (connection == null) {
+                throw new IllegalStateException(ex);
+            }
             return;
         }
         try {
@@ -81,7 +96,7 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
         LogSequenceNumber lsn;
         String[] tables = tableNames.split(",");
         if (fromBegin) {
-            lsn = getAllLSN(connection, slotName, publicationName);
+            lsn = getAllLSN(connection, slotName);
         } else {
             lsn = getCurrentLSN(connection);
         }
@@ -118,6 +133,9 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
                     if (dataType == DataTypeEnum.proto) {
                         sender.sendProtoAsync(changes, topic);
                     }
+                    if (dataType == DataTypeEnum.bytes) {
+                        sender.sendByteAsync(changes.getBytes(), topic);
+                    }
                 }
                 stream.setAppliedLSN(stream.getLastReceiveLSN());
             } else {
@@ -130,7 +148,8 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
     @Async
     @Override
     public void connectToExistingSlot(ConnectorEntity connectorEntity) {
-        Connection connection;
+        int retryCount = RETRY_CONNECTION_COUNT;
+        Connection connection = null;
         try {
             connection = createConnection(connectorEntity.getUsername(), connectorEntity.getPassword(), connectorEntity.getHost(), connectorEntity.getPort(), connectorEntity.getDatabase());
 
@@ -139,17 +158,36 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
                 System.exit(-1);
             }
         } catch (SQLException ex) {
-            ex.printStackTrace();
-            return;
+            if (ex.getCause() instanceof ConnectException) {
+                while (retryCount > 0) {
+                    try {
+                        connection = createConnection(connectorEntity.getUsername(), connectorEntity.getPassword(), connectorEntity.getHost(), connectorEntity.getPort(), connectorEntity.getDatabase());
+                    } catch (SQLException e) {
+                        retryCount--;
+                        e.printStackTrace();
+                    }
+                }
+            }
+            if (connection == null) {
+                throw new IllegalStateException(ex);
+            }
         }
 
+        retryCount = RETRY_CONNECTION_COUNT;
         try {
             if (!isReplicationSlotActive(connection, connectorEntity.getCdcInfoEntity().getSlotName())) {
                 Connection replicationConnection = openReplicationConnection(connectorEntity.getUsername(), connectorEntity.getPassword(), connectorEntity.getHost(), connectorEntity.getPort(), connectorEntity.getDatabase());
 
-                receiveChangesFromCurrentLsn(connection, replicationConnection, connectorEntity.getPlugin(), connectorEntity.getCdcInfoEntity().getSlotName(), connectorEntity.getCdcInfoEntity().getPublicationName(), connectorEntity.getTopicName(), connectorEntity.getId(), connectorEntity.getCdcInfoEntity().getLastAppliedChange() != null ? connectorEntity.getCdcInfoEntity().getLastAppliedChange().getLsn() : null, connectorEntity.getTables());
+                receiveChangesFromCurrentLsn(connection, replicationConnection, connectorEntity.getDataType(), connectorEntity.getCdcInfoEntity().getSlotName(), connectorEntity.getCdcInfoEntity().getPublicationName(), connectorEntity.getTopicName(), connectorEntity.getId(), connectorEntity.getCdcInfoEntity().getLastAppliedChange(), connectorEntity.getTables());
             }
         } catch (Exception e) {
+            if (e instanceof SocketException) {
+                while (retryCount > 0) {
+                    Optional<ConnectorEntity> connector = connectorService.loadConnector(connectorEntity.getId());
+                    connector.ifPresent(this::connectToExistingSlot);
+                    retryCount--;
+                }
+            }
             throw new IllegalStateException(e);
         }
     }
@@ -157,7 +195,7 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
     @Override
     public void receiveChangesFromCurrentLsn(Connection connection,
                                              Connection replicationConnection,
-                                             PluginEnum plugin,
+                                             DataTypeEnum dataType,
                                              String slotName,
                                              String publicationName,
                                              String topic,
@@ -195,14 +233,17 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
                 if (containsTableChanges) {
                     log.info(changes);
                     connectorService.updateCdcInfo(connectorId, stream.getLastReceiveLSN(), publicationName, slotName, changes);
-                    if (plugin == PluginEnum.wal2json) {
+                    if (dataType == DataTypeEnum.json) {
                         sender.sendJsonAsync(changes, topic);
                     }
-                    if (plugin == PluginEnum.avro) {
+                    if (dataType == DataTypeEnum.avro) {
                         sender.sendAvroAsync(changes, topic);
                     }
-                    if (plugin == PluginEnum.decoderbufs) {
+                    if (dataType == DataTypeEnum.proto) {
                         sender.sendProtoAsync(changes, topic);
+                    }
+                    if (dataType == DataTypeEnum.bytes) {
+                        sender.sendByteAsync(changes.getBytes(), topic);
                     }
                 }
                 stream.setAppliedLSN(stream.getLastReceiveLSN());
@@ -214,17 +255,25 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
     }
 
     private boolean checkContainsTable(String[] tables, String changes) {
+        boolean contains = false;
         if (tables.length > 0) {
-            Changes obj = ConverterUtils.toObject(changes);
-            return obj.getChange().stream()
-                    .map(Changes.Change::getTable)
-                    .anyMatch(new HashSet<>(List.of(tables))
-                            ::contains);
+            for (String table : tables) {
+                String tableName = table;
+                int index = table.indexOf(".");
+                if (index != -1) {
+                    tableName = table.substring(index + 1);
+                }
+                Changes obj = ConverterUtils.toObject(changes);
+                String finalTableName = tableName;
+                contains = obj.getChange().stream()
+                        .map(Changes.Change::getTable)
+                        .anyMatch(name -> name.equalsIgnoreCase(finalTableName));
+            }
         }
-        return true;
+        return contains;
     }
 
-    private LogSequenceNumber getAllLSN(Connection connection, String slotName, String publicationName) throws SQLException {
+    private LogSequenceNumber getAllLSN(Connection connection, String slotName) throws SQLException {
         try (Statement st = connection.createStatement()) {
             try (ResultSet rs = st.executeQuery("SELECT * FROM pg_logical_slot_peek_changes('" + slotName + "', null, null);")) {
 
@@ -244,10 +293,6 @@ public class Wal2JsonReplicationService implements ru.kpfu.itis.postgrescdc.serv
 
 
     private static String toString(ByteBuffer buffer) {
-        int offset = buffer.arrayOffset();
-        byte[] source = buffer.array();
-        int length = source.length - offset;
-
-        return new String(source, offset, length);
+        return StandardCharsets.UTF_8.decode(buffer).toString();
     }
 }

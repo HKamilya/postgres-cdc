@@ -19,9 +19,8 @@ public class CdcInfoEntity {
     private String publicationName;
     @Column(name = "slot_name")
     private String slotName;
-    @ManyToOne
-    @JoinColumn(name = "last_applied_change_id")
-    private ChangeEntity lastAppliedChange;
+    @Column(name = "last_applied_change")
+    private String lastAppliedChange;
     @Column(name = "create_dt")
     private LocalDateTime createDt;
     @Column(name = "change_dt")

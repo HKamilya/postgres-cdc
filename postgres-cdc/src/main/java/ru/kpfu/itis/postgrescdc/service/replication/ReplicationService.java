@@ -5,7 +5,7 @@ import org.postgresql.PGProperty;
 import org.postgresql.core.BaseConnection;
 import org.postgresql.core.ServerVersion;
 import org.postgresql.replication.LogSequenceNumber;
-import ru.kpfu.itis.postgrescdc.model.PluginEnum;
+import ru.kpfu.itis.postgrescdc.model.DataTypeEnum;
 
 import java.sql.*;
 import java.util.Objects;
@@ -173,7 +173,7 @@ public interface ReplicationService {
 
     void receiveChangesFromCurrentLsn(Connection connection,
                                       Connection replicationConnection,
-                                      PluginEnum plugin,
+                                      DataTypeEnum dataTypeEnum,
                                       String slotName,
                                       String publicationName,
                                       String topic,

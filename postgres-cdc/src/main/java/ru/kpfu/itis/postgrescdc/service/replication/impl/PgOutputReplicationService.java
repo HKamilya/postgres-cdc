@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.entity.ConnectorEntity;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
+import ru.kpfu.itis.postgrescdc.model.DataTypeEnum;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 import ru.kpfu.itis.postgrescdc.service.ConnectorService;
 import ru.kpfu.itis.postgrescdc.service.ProducerService;
@@ -137,7 +138,7 @@ public class PgOutputReplicationService implements ru.kpfu.itis.postgrescdc.serv
             if (!isReplicationSlotActive(connection, connectorEntity.getCdcInfoEntity().getSlotName())) {
                 Connection replicationConnection = openReplicationConnection(connectorEntity.getUsername(), connectorEntity.getPassword(), connectorEntity.getHost(), connectorEntity.getPort(), connectorEntity.getDatabase());
 
-                receiveChangesFromCurrentLsn(connection, replicationConnection, connectorEntity.getPlugin(), connectorEntity.getCdcInfoEntity().getSlotName(), connectorEntity.getCdcInfoEntity().getPublicationName(), connectorEntity.getTopicName(), connectorEntity.getId(), connectorEntity.getCdcInfoEntity().getLastAppliedChange() != null ? connectorEntity.getCdcInfoEntity().getLastAppliedChange().getLsn() : null, connectorEntity.getTables());
+                receiveChangesFromCurrentLsn(connection, replicationConnection, connectorEntity.getDataType(), connectorEntity.getCdcInfoEntity().getSlotName(), connectorEntity.getCdcInfoEntity().getPublicationName(), connectorEntity.getTopicName(), connectorEntity.getId(), connectorEntity.getCdcInfoEntity().getLastAppliedChange(), connectorEntity.getTables());
             }
         } catch (Exception e) {
             throw new IllegalStateException(e);
@@ -145,7 +146,7 @@ public class PgOutputReplicationService implements ru.kpfu.itis.postgrescdc.serv
     }
 
     @Override
-    public void receiveChangesFromCurrentLsn(Connection connection, Connection replicationConnection, PluginEnum plugin, String slotName, String publicationName, String topic, UUID connectorId, String lsnString, String tables) throws Exception {
+    public void receiveChangesFromCurrentLsn(Connection connection, Connection replicationConnection, DataTypeEnum dataTypeEnum, String slotName, String publicationName, String topic, UUID connectorId, String lsnString, String tables) throws Exception {
         PGConnection pgConnection = (PGConnection) replicationConnection;
 
         LogSequenceNumber lsn;

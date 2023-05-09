@@ -25,7 +25,7 @@ public class ConverterUtils {
 
     public static Struct toProto(String changes) {
         Struct.Builder structBuilder = Struct.newBuilder();
-        Struct build = null;
+        Struct build;
         try {
             JsonFormat.parser().merge(changes, structBuilder);
             build = structBuilder.build();

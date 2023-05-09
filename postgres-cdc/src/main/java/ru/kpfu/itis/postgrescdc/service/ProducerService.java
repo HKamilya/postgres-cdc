@@ -62,12 +62,12 @@ public class ProducerService {
         }
     }
 
-    public void sendByteAsync(byte[] protoChanges, String topic) {
+    public void sendByteAsync(byte[] byteChanges, String topic) {
         try (Producer<byte[]> producer = pulsarClient.newProducer(Schema.BYTES)
                 .topic(topic)
                 .producerName(UUID.randomUUID().toString())
                 .create()) {
-            producer.sendAsync(protoChanges).thenAccept(msgId -> log.info("Byte message with ID {} successfully sent", msgId));
+            producer.sendAsync(byteChanges).thenAccept(msgId -> log.info("Byte message with ID {} successfully sent", msgId));
             producer.flush();
         } catch (PulsarClientException e) {
             throw new IllegalStateException(e);
