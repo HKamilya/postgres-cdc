@@ -53,4 +53,7 @@ public class ConnectorEntity {
     @Column(name = "save_changes")
     private Boolean saveChanges;
 
+
+
+
 }
