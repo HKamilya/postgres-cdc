@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import ru.kpfu.itis.postgrescdc.entity.CdcInfoEntity;
 import ru.kpfu.itis.postgrescdc.entity.ChangeEntity;
 import ru.kpfu.itis.postgrescdc.entity.ConnectorEntity;
+import ru.kpfu.itis.postgrescdc.model.ConnectorChangeModel;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.model.PluginEnum;
 import ru.kpfu.itis.postgrescdc.repository.CdcInfoRepository;
@@ -29,7 +30,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     private final CdcInfoRepository cdcInfoRepository;
 
     @Override
-    public void createConnector(ConnectorModel model) {
+    public void create(ConnectorModel model) {
         LocalDateTime now = LocalDateTime.now(Clock.systemUTC());
 
         CdcInfoEntity cdcInfoEntity = new CdcInfoEntity();
@@ -117,10 +118,28 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    public void deactivate(UUID connectorId) {
-        Optional<ConnectorEntity> connector = connectorRepository.findById(connectorId);
+    public void deactivate(UUID id) {
+        Optional<ConnectorEntity> connector = connectorRepository.findById(id);
         if (connector.isPresent()) {
             connector.get().setIsActive(false);
+            connector.get().setChangeDt(LocalDateTime.now(Clock.systemUTC()));
+            connectorRepository.save(connector.get());
+        } else {
+            throw new IllegalArgumentException("connector with id is not exists");
+        }
+    }
+
+    @Override
+    public void change(UUID id, ConnectorChangeModel model) {
+        Optional<ConnectorEntity> connector = connectorRepository.findById(id);
+        if (connector.isPresent()) {
+            connector.get().setTopicName(model.getTopicName());
+            connector.get().setDatabase(model.getDatabase());
+            connector.get().setSaveChanges(model.isSaveChanges());
+            connector.get().setPort(model.getPort());
+            connector.get().setHost(model.getHost());
+            connector.get().setUsername(model.getUser());
+            connector.get().setPassword(model.getPassword());
             connector.get().setChangeDt(LocalDateTime.now(Clock.systemUTC()));
             connectorRepository.save(connector.get());
         } else {

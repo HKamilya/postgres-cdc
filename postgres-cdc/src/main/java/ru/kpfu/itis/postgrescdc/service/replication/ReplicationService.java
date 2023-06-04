@@ -17,7 +17,7 @@ import java.util.concurrent.TimeoutException;
 public interface ReplicationService {
 
     default String createUrl(String host, String port, String database) {
-        return "jdbc:postgresql://" + host + ':' + port + '/' + database;
+        return "jdbc:postgresql://" + host + (StringUtils.isNotBlank(port) ? ':' + port : "") + '/' + database;
     }
 
     default Connection createConnection(String user, String password, String host, String port, String database) throws SQLException {

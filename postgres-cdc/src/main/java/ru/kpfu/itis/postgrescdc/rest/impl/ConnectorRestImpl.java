@@ -1,9 +1,15 @@
 package ru.kpfu.itis.postgrescdc.rest.impl;
 
+import io.swagger.v3.oas.annotations.Operation;
+import org.apache.pulsar.shade.io.swagger.annotations.Api;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import ru.kpfu.itis.postgrescdc.entity.ConnectorEntity;
+import ru.kpfu.itis.postgrescdc.model.ConnectorChangeModel;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
 import ru.kpfu.itis.postgrescdc.rest.ConnectorRest;
 import ru.kpfu.itis.postgrescdc.service.ConnectorService;
@@ -15,7 +21,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@RestController("/connector")
+@RestController()
+@RequestMapping("/api/connector")
+@Api("Работа с коннекторами")
 public class ConnectorRestImpl implements ConnectorRest {
     private final ConnectorService connectorService;
     private final ReplicationService replicationService;
@@ -25,18 +33,21 @@ public class ConnectorRestImpl implements ConnectorRest {
         this.replicationService = replicationService;
     }
 
+    @Operation(summary = "Получение всех доступных коннекторов")
     @Override
     public List<ConnectorEntity> getConnectors() {
         return connectorService.findAll();
     }
 
+    @Operation(summary = "Добавление нового коннектора")
     @Override
-    public ResponseEntity<Object> addConnectors(@RequestBody @Valid @NotNull ConnectorModel model) {
+    public ResponseEntity<Object> addConnector(@RequestBody @Valid @NotNull ConnectorModel model) {
         model.setId(UUID.randomUUID());
-        connectorService.createConnector(model);
+        connectorService.create(model);
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Удаление коннектора")
     @Override
     public ResponseEntity<Object> deleteConnector(@PathVariable("connectorId") UUID connectorId) {
         Optional<ConnectorEntity> connectorEntity = connectorService.loadConnector(connectorId);
@@ -47,9 +58,17 @@ public class ConnectorRestImpl implements ConnectorRest {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Деактивация коннектора")
     @Override
     public ResponseEntity<Object> deactivateConnector(@PathVariable("connectorId") UUID connectorId) {
         connectorService.deactivate(connectorId);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Изменение коннектора")
+    @Override
+    public ResponseEntity<Object> changeConnector(@PathVariable("connectorId") UUID id, ConnectorChangeModel model) {
+        connectorService.change(id, model);
         return ResponseEntity.ok().build();
     }
 }

@@ -18,8 +18,10 @@ public class ConnectorEntity {
     @Column(name = "id")
     private UUID id;
     @Column(name = "data_type")
+    @Enumerated(EnumType.STRING)
     private DataTypeEnum dataType;
     @Column(name = "plugin")
+    @Enumerated(EnumType.STRING)
     private PluginEnum plugin;
     @Column(name = "host")
     private String host;
