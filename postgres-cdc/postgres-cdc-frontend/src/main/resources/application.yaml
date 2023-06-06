@@ -1,0 +1,13 @@
+server:
+  servlet:
+    encoding:
+      force-response: true
+      force: true
+  port: 8082
+
+n2o:
+  application:
+    id: postgres-cdc
+  engine:
+    rest:
+      url: http://localhost:8081/api

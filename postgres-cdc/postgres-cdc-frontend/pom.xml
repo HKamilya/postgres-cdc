@@ -2,22 +2,35 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <groupId>ru.kpfu.itis.postgrescdc</groupId>
+    <artifactId>postgres-cdc-frontend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>postgres-cdc-ui</name>
+    <description>postgres-cdc-frontend</description>
+    <properties>
+        <java.version>14</java.version>
+        <n2o.version>7.23.53</n2o.version>
+    </properties>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>2.7.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>ru.kpfu.itis</groupId>
-    <artifactId>postgres-cdc</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>postgres-cdc</name>
-    <description>postgres-cdc</description>
-    <packaging>pom</packaging>
-    <modules>
-        <module>postgres-cdc-backend</module>
-        <module>postgres-cdc-frontend</module>
-    </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>net.n2oapp.framework</groupId>
+            <artifactId>n2o-spring-boot-starter</artifactId>
+            <version>${n2o.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.n2oapp.framework</groupId>
+            <artifactId>n2o-web</artifactId>
+            <version>${n2o.version}</version>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>

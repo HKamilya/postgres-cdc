@@ -31,3 +31,7 @@ spring:
 
   liquibase:
     change-log: classpath:db/changelog.yml
+
+logging:
+  level:
+    org.zalando.logbook: TRACE

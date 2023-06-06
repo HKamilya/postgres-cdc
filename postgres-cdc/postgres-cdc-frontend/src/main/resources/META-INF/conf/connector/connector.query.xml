@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<query xmlns="http://n2oapp.net/framework/config/schema/query-5.0">
+    <list result-mapping="#this">
+        <rest>/connector</rest>
+    </list>
+    <unique>
+        <rest>/connector/{id}</rest>
+    </unique>
+
+    <fields>
+        <field id="id"/>
+        <field id="dataType"/>
+        <field id="host"/>
+        <field id="port"/>
+        <field id="database"/>
+        <field id="username"/>
+        <field id="password"/>
+        <field id="fromBegin"/>
+        <field id="forAllTables"/>
+        <field id="schema"/>
+        <field id="tables"/>
+        <field id="topicName"/>
+        <field id="publicationName"/>
+        <field id="slotName"/>
+        <field id="lastAppliedChange"/>
+        <field id="isActive"/>
+        <field id="saveChanges"/>
+
+    </fields>
+</query>
