@@ -1,5 +1,30 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <object xmlns="http://n2oapp.net/framework/config/schema/object-4.0"
         name="Слушатели">
+    <operations>
+        <operation id="deactivate">
+            <invocation>
+                <rest method="PUT">/connector/{id}</rest>
+            </invocation>
+            <in>
+                <field id="id" mapping="['id']"/>
+            </in>
+        </operation>
+        <operation id="update">
+            <invocation>
+                <rest method="PUT">/connector/{id}</rest>
+            </invocation>
+            <in>
+                <field id="id" mapping="['id']"/>
+                <field id="host" mapping="['host']"/>
+                <field id="port" mapping="['port']"/>
+                <field id="database" mapping="['database']"/>
+                <field id="user" mapping="['user']"/>
+                <field id="password" mapping="['password']"/>
+                <field id="topicName" mapping="['topicName']"/>
+                <field id="saveChanges" mapping="['saveChanges']"/>
+            </in>
+        </operation>
+    </operations>
 
 </object>

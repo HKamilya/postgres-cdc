@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<page xmlns="http://n2oapp.net/framework/config/schema/page-4.0"
+      name="Слушатели">
+    <regions>
+        <table>
+            <datasource query-id="connector"/>
+            <columns>
+                <column text-field-id="database"/>
+                <column text-field-id="dataType"/>
+                <column text-field-id="host"/>
+                <column text-field-id="port"/>
+                <column text-field-id="schema"/>
+                <column text-field-id="tables"/>
+                <column text-field-id="topicName"/>
+                <column text-field-id="cdcInfoEntity.publicationName"/>
+                <column text-field-id="cdcInfoEntity.slotName"/>
+                <column text-field-id="cdcInfoEntity.lastAppliedChange"/>
+                <column text-field-id="isActive">
+                    <checkbox/>
+                </column>
+                <column text-field-id="saveChanges">
+                    <checkbox/>
+                </column>
+            </columns>
+            <rows>
+                <click>
+                    <open-page page-id="connector" route="/:id/open">
+                        <params>
+                            <path-param name="id" value="{id}"/>
+                        </params>
+                    </open-page>
+                </click>
+            </rows>
+        </table>
+    </regions>
+</page>

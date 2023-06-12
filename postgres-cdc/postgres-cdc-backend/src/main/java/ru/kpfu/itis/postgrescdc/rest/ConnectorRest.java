@@ -3,10 +3,7 @@ package ru.kpfu.itis.postgrescdc.rest;
 import org.apache.pulsar.shade.io.swagger.annotations.Api;
 import org.apache.pulsar.shade.io.swagger.annotations.ApiOperation;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.*;
 import ru.kpfu.itis.postgrescdc.entity.ConnectorEntity;
 import ru.kpfu.itis.postgrescdc.model.ConnectorChangeModel;
 import ru.kpfu.itis.postgrescdc.model.ConnectorModel;
@@ -23,17 +20,26 @@ public interface ConnectorRest {
 
     @ApiOperation("Добавление нового коннектора")
     @PostMapping("")
-    ResponseEntity<Object> addConnector(ConnectorModel model);
+    ResponseEntity<Object> addConnector(@PathVariable("connectorId")ConnectorModel model);
 
     @ApiOperation("Удаление коннектора")
     @DeleteMapping("/{connectorId}")
-    ResponseEntity<Object> deleteConnector(UUID connectorId);
+    ResponseEntity<Object> deleteConnector( @PathVariable("connectorId")UUID connectorId);
 
     @ApiOperation("Деактивация коннектора")
     @PutMapping("/{connectorId}")
-    ResponseEntity<Object> deactivateConnector(UUID connectorId);
+    ResponseEntity<Object> deactivateConnector(@PathVariable("connectorId")UUID connectorId);
 
     @ApiOperation("Изменение коннектора")
     @PostMapping("/{connectorId}")
-    ResponseEntity<Object> changeConnector(UUID connectorId, ConnectorChangeModel model);
+    ResponseEntity<Object> changeConnector(@PathVariable("connectorId")UUID connectorId, ConnectorChangeModel model);
+
+    @ApiOperation("Получение коннектора")
+    @GetMapping("/{connectorId}")
+    ResponseEntity<Object> getConnector(@PathVariable("connectorId")UUID connectorId);
+
+    @ApiOperation("Получение журнала изменений")
+    @GetMapping("/{connectorId}/changes")
+    ResponseEntity<Object> getChanges(@PathVariable("connectorId")UUID connectorId);
 }
+

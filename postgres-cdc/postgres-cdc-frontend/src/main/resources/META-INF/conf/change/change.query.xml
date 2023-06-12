@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<query xmlns="http://n2oapp.net/framework/config/schema/query-5.0">
+    <list result-mapping="#this" count-mapping="#this.size()">
+        <rest method="GET">/connector/{connectorId}/changes</rest>
+    </list>
+
+    <filters>
+        <eq field-id="connectorId" filter-id="connectorId"/>
+    </filters>
+
+    <fields>
+        <field id="id" name="Идентификатор" normalize="#this != null ? #this: '-'"/>
+        <field id="connectorId" name="Идентификатор слушателя" normalize="#this != null ? #this: '-'"/>
+        <field id="changes" name="Изменения" normalize="#this != null ? #this: '-'"/>
+        <field id="lsn" name="Порядковый номер журнала" normalize="#this != null ? #this: '-'"/>
+    </fields>
+</query>

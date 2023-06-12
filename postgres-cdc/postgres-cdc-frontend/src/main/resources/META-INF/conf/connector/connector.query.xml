@@ -1,30 +1,40 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <query xmlns="http://n2oapp.net/framework/config/schema/query-5.0">
     <list result-mapping="#this">
-        <rest>/connector</rest>
+        <rest method="GET">/connector</rest>
     </list>
     <unique>
-        <rest>/connector/{id}</rest>
+        <rest method="GET">/connector/{id}</rest>
+    </unique>
+    <unique>
+        <rest method="GET">/connector/{connectorId}</rest>
     </unique>
 
-    <fields>
-        <field id="id"/>
-        <field id="dataType"/>
-        <field id="host"/>
-        <field id="port"/>
-        <field id="database"/>
-        <field id="username"/>
-        <field id="password"/>
-        <field id="fromBegin"/>
-        <field id="forAllTables"/>
-        <field id="schema"/>
-        <field id="tables"/>
-        <field id="topicName"/>
-        <field id="publicationName"/>
-        <field id="slotName"/>
-        <field id="lastAppliedChange"/>
-        <field id="isActive"/>
-        <field id="saveChanges"/>
+    <filters>
+        <eq field-id="id" filter-id="id"/>
+        <eq field-id="connectorId" filter-id="connectorId"/>
+    </filters>
 
+    <fields>
+        <field id="id" name="Идентификатор" normalize="#this != null ? #this: '-'"/>
+        <field id="dataType" name="Тип отправляемых данных" normalize="#this != null ? #this: '-'"/>
+        <field id="host" name="Хост" normalize="#this != null ? #this: '-'"/>
+        <field id="port" name="Порт" normalize="#this != null ? #this: '-'"/>
+        <field id="database" name="Название базы данных" normalize="#this != null ? #this: '-'"/>
+        <field id="username" name="Имя пользователя" normalize="#this != null ? #this: '-'"/>
+        <field id="password" name="Пароль" normalize="#this != null ? #this: '-'"/>
+        <field id="fromBegin" name="Прослушавание с первого изменения" normalize="#this == true ? 'Да': 'Нет'"/>
+        <field id="forAllTables" name="Прослушивания всех таблиц в схеме" normalize="#this == true ? 'Да': 'Нет'"/>
+        <field id="schema" name="Схема" normalize="#this != null ? #this: '-'"/>
+        <field id="tables" name="Таблица" normalize="#this != null ? #this: '-'"/>
+        <field id="topicName" name="Название топика" normalize="#this != null ? #this: '-'"/>
+        <reference id="cdcInfoEntity">
+            <field id="publicationName" name="Название публикации" normalize="#this != null ? #this: '-'"/>
+            <field id="slotName" name="Название слота" normalize="#this != null ? #this: '-'"/>
+            <field id="lastAppliedChange" name="Последнее принятое изменение" normalize="#this != null ? #this: '-'"/>
+        </reference>
+        <field id="isActive" name="Активно" normalize="#this == true ? 'Да': 'Нет'"/>
+        <field id="saveChanges" name="Сохранение полученных изменений" normalize="#this == true ? 'Да': 'Нет'"/>
+        <field id="connectorId" mapping="['id']"/>
     </fields>
 </query>

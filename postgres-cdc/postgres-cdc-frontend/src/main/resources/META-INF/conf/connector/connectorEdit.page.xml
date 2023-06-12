@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <page xmlns="http://n2oapp.net/framework/config/schema/page-4.0"
-      name="Слушатель">
+      name="Изменение слушателя">
     <regions>
         <form>
             <datasource query-id="connector">
@@ -12,19 +12,8 @@
                 <button label="Отключить">
                     <invoke operation-id="deactivate" object-id="connector"/>
                 </button>
-                <button label="Изменить">
-                    <open-page page-id="connectorEdit" object-id="change" route="/:connectorId/edit">
-                        <params>
-                            <path-param name="connectorId" value="{id}"/>
-                        </params>
-                    </open-page>
-                </button>
-                <button label="Журнал изменений">
-                    <open-page page-id="changes" object-id="change" route="/:connectorId/changes/open">
-                        <params>
-                            <path-param name="connectorId" value="{id}"/>
-                        </params>
-                    </open-page>
+                <button label="Сохранить">
+                    <invoke operation-id="update" object-id="connector"/>
                 </button>
             </toolbar>
             <fields>
@@ -49,27 +38,27 @@
                 </row>
                 <row>
                     <col size="6">
-                        <input-text id="host" label="Хост" enabled="false"/>
+                        <input-text id="host" label="Хост"/>
                     </col>
                 </row>
                 <row>
                     <col size="6">
-                        <input-text id="port" label="Порт" enabled="false"/>
+                        <input-text id="port" label="Порт"/>
                     </col>
                 </row>
                 <row>
                     <col size="6">
-                        <input-text id="database" label="Название базы данных" enabled="false"/>
+                        <input-text id="database" label="Название базы данных"/>
                     </col>
                 </row>
                 <row>
                     <col size="6">
-                        <input-text id="username" label="Имя пользователя" enabled="false"/>
+                        <input-text id="username" label="Имя пользователя"/>
                     </col>
                 </row>
                 <row>
                     <col size="6">
-                        <password id="password" label="Пароль" enabled="false"/>
+                        <password id="password" label="Пароль"/>
                     </col>
                 </row>
                 <row>
@@ -94,7 +83,7 @@
                 </row>
                 <row>
                     <col size="6">
-                        <input-text id="topicName" label="Название топика" enabled="false"/>
+                        <input-text id="topicName" label="Название топика"/>
                     </col>
                 </row>
                 <row>
@@ -115,7 +104,7 @@
                 </row>
                 <row>
                     <col size="6">
-                        <checkbox id="saveChanges" label="Сохранение полученных изменений" enabled="false"/>
+                        <checkbox id="saveChanges" label="Сохранение полученных изменений"/>
                     </col>
                 </row>
             </fields>

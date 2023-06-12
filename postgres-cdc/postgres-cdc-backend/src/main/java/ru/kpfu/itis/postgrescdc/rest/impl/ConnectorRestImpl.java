@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import org.apache.pulsar.shade.io.swagger.annotations.Api;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,7 +48,7 @@ public class ConnectorRestImpl implements ConnectorRest {
 
     @Operation(summary = "Удаление коннектора")
     @Override
-    public ResponseEntity<Object> deleteConnector(@PathVariable("connectorId") UUID connectorId) {
+    public ResponseEntity<Object> deleteConnector(UUID connectorId) {
         Optional<ConnectorEntity> connectorEntity = connectorService.loadConnector(connectorId);
         if (connectorEntity.isPresent() && connectorEntity.get().getCdcInfoEntity() != null) {
             replicationService.dropReplication(connectorEntity.get().getUsername(), connectorEntity.get().getPassword(), connectorEntity.get().getHost(), connectorEntity.get().getPort(), connectorEntity.get().getDatabase(), connectorEntity.get().getCdcInfoEntity().getSlotName());
@@ -60,15 +59,26 @@ public class ConnectorRestImpl implements ConnectorRest {
 
     @Operation(summary = "Деактивация коннектора")
     @Override
-    public ResponseEntity<Object> deactivateConnector(@PathVariable("connectorId") UUID connectorId) {
+    public ResponseEntity<Object> deactivateConnector(UUID connectorId) {
         connectorService.deactivate(connectorId);
         return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Изменение коннектора")
     @Override
-    public ResponseEntity<Object> changeConnector(@PathVariable("connectorId") UUID id, ConnectorChangeModel model) {
+    public ResponseEntity<Object> changeConnector(UUID id, ConnectorChangeModel model) {
         connectorService.change(id, model);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Получение коннектора")
+    @Override
+    public ResponseEntity<Object> getConnector(UUID connectorId) {
+        return ResponseEntity.ok(connectorService.loadConnector(connectorId));
+    }
+
+    @Override
+    public ResponseEntity<Object> getChanges(UUID connectorId) {
+        return ResponseEntity.ok(connectorService.getChanges(connectorId));
     }
 }

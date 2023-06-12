@@ -146,4 +146,14 @@ public class ConnectorServiceImpl implements ConnectorService {
             throw new IllegalArgumentException("connector with id is not exists");
         }
     }
+
+    @Override
+    public List<ChangeEntity> getChanges(UUID connectorId) {
+        Optional<ConnectorEntity> connectorEntityOptional = loadConnector(connectorId);
+        if (connectorEntityOptional.isEmpty()) {
+            throw new IllegalArgumentException("connector with id is not exists");
+        }
+        UUID cdcInfoId = connectorEntityOptional.get().getCdcInfoEntity().getId();
+        return changeRepository.findAllByCdcInfoEntityId(cdcInfoId);
+    }
 }
