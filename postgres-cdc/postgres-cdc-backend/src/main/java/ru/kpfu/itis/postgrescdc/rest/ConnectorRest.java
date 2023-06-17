@@ -20,26 +20,26 @@ public interface ConnectorRest {
 
     @ApiOperation("Добавление нового коннектора")
     @PostMapping("")
-    ResponseEntity<Object> addConnector(@PathVariable("connectorId")ConnectorModel model);
+    ResponseEntity<Object> addConnector(ConnectorModel model);
 
     @ApiOperation("Удаление коннектора")
     @DeleteMapping("/{connectorId}")
-    ResponseEntity<Object> deleteConnector( @PathVariable("connectorId")UUID connectorId);
+    ResponseEntity<Object> deleteConnector(@PathVariable("connectorId") UUID connectorId);
 
     @ApiOperation("Деактивация коннектора")
     @PutMapping("/{connectorId}")
-    ResponseEntity<Object> deactivateConnector(@PathVariable("connectorId")UUID connectorId);
+    ResponseEntity<Object> deactivateConnector(@PathVariable("connectorId") UUID connectorId);
 
     @ApiOperation("Изменение коннектора")
     @PostMapping("/{connectorId}")
-    ResponseEntity<Object> changeConnector(@PathVariable("connectorId")UUID connectorId, ConnectorChangeModel model);
+    ResponseEntity<Object> changeConnector(@PathVariable("connectorId") UUID connectorId, ConnectorChangeModel model);
 
     @ApiOperation("Получение коннектора")
     @GetMapping("/{connectorId}")
-    ResponseEntity<Object> getConnector(@PathVariable("connectorId")UUID connectorId);
+    ResponseEntity<Object> getConnector(@PathVariable("connectorId") UUID connectorId);
 
     @ApiOperation("Получение журнала изменений")
     @GetMapping("/{connectorId}/changes")
-    ResponseEntity<Object> getChanges(@PathVariable("connectorId")UUID connectorId);
+    ResponseEntity<Object> getChanges(@PathVariable("connectorId") UUID connectorId);
 }
 

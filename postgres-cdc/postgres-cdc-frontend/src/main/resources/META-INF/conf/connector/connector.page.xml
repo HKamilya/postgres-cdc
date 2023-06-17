@@ -84,11 +84,6 @@
                 </row>
                 <row>
                     <col size="6">
-                        <input-text id="schema" label="Схема" enabled="false"/>
-                    </col>
-                </row>
-                <row>
-                    <col size="6">
                         <input-text id="tables" label="Таблица" enabled="false"/>
                     </col>
                 </row>

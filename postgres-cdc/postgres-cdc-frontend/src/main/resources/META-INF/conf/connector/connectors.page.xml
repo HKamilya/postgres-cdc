@@ -3,13 +3,17 @@
       name="Слушатели">
     <regions>
         <table>
+            <toolbar place="topRight">
+                <button label="Создать слушателя" color="primary" disable-on-empty-model="false">
+                    <open-page page-id="connectorCreate" object-id="connector" route="/new"/>
+                </button>
+            </toolbar>
             <datasource query-id="connector"/>
             <columns>
                 <column text-field-id="database"/>
                 <column text-field-id="dataType"/>
                 <column text-field-id="host"/>
                 <column text-field-id="port"/>
-                <column text-field-id="schema"/>
                 <column text-field-id="tables"/>
                 <column text-field-id="topicName"/>
                 <column text-field-id="cdcInfoEntity.publicationName"/>

@@ -37,8 +37,6 @@ public class ConnectorEntity {
     private Boolean fromBegin;
     @Column(name = "for_all_tables")
     private Boolean forAllTables;
-    @Column(name = "schema")
-    private String schema;
     @Column(name = "tables")
     private String tables;
     @Column(name = "topic_name")

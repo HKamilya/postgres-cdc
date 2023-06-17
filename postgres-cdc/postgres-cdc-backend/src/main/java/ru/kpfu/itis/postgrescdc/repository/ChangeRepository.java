@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ChangeRepository extends JpaRepository<ChangeEntity, UUID> {
-    List<ChangeEntity> findAllByCdcInfoEntityId(UUID id);
+    List<ChangeEntity> findAllByCdcInfoEntityIdOrderByCreateDt(UUID id);
 }

@@ -154,6 +154,6 @@ public class ConnectorServiceImpl implements ConnectorService {
             throw new IllegalArgumentException("connector with id is not exists");
         }
         UUID cdcInfoId = connectorEntityOptional.get().getCdcInfoEntity().getId();
-        return changeRepository.findAllByCdcInfoEntityId(cdcInfoId);
+        return changeRepository.findAllByCdcInfoEntityIdOrderByCreateDt(cdcInfoId);
     }
 }

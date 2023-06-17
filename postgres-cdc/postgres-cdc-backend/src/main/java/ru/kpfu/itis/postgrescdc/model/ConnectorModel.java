@@ -23,7 +23,6 @@ public class ConnectorModel {
     private String password;
     private boolean fromBegin;
     private boolean forAllTables;
-    private String schema;
     private String tables;
     private String slotName;
     private String publicationName;

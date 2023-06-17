@@ -25,7 +25,6 @@
         <field id="password" name="Пароль" normalize="#this != null ? #this: '-'"/>
         <field id="fromBegin" name="Прослушавание с первого изменения" normalize="#this == true ? 'Да': 'Нет'"/>
         <field id="forAllTables" name="Прослушивания всех таблиц в схеме" normalize="#this == true ? 'Да': 'Нет'"/>
-        <field id="schema" name="Схема" normalize="#this != null ? #this: '-'"/>
         <field id="tables" name="Таблица" normalize="#this != null ? #this: '-'"/>
         <field id="topicName" name="Название топика" normalize="#this != null ? #this: '-'"/>
         <reference id="cdcInfoEntity">

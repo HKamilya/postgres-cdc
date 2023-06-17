@@ -18,92 +18,87 @@
             </toolbar>
             <fields>
                 <row>
-                    <col size="6">
+                    <col size="5">
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="id" label="Идентификатор" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <checkbox id="isActive" label="Активно" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="dataType" label="Тип отправляемых данных" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="host" label="Хост"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="port" label="Порт"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="database" label="Название базы данных"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="username" label="Имя пользователя"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <password id="password" label="Пароль"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <checkbox id="fromBegin" label="Прослушавание с первого изменения" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <checkbox id="forAllTables" label="Прослушивания всех таблиц в схеме" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
-                        <input-text id="schema" label="Схема" enabled="false"/>
-                    </col>
-                </row>
-                <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="tables" label="Таблица" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="topicName" label="Название топика"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="cdcInfoEntity.publicationName" label="Название публикации" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="cdcInfoEntity.slotName" label="Название слота" enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="cdcInfoEntity.lastAppliedChange" label="Последнее принятое изменение"
                                     enabled="false"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <checkbox id="saveChanges" label="Сохранение полученных изменений"/>
                     </col>
                 </row>

@@ -25,6 +25,26 @@
                 <field id="saveChanges" mapping="['saveChanges']"/>
             </in>
         </operation>
+        <operation id="create">
+            <invocation>
+                <rest method="POST">/connector</rest>
+            </invocation>
+            <in>
+                <field id="dataType.name" mapping="['dataType']"/>
+                <field id="host" mapping="['host']"/>
+                <field id="port" mapping="['port']" domain="string"/>
+                <field id="database" mapping="['database']"/>
+                <field id="user" mapping="['user']"/>
+                <field id="password" mapping="['password']"/>
+                <field id="fromBegin" mapping="['fromBegin']"/>
+                <field id="forAllTables" mapping="['forAllTables']"/>
+                <field id="tables" mapping="['tables']"/>
+                <field id="slotName" mapping="['slotName']"/>
+                <field id="publicationName" mapping="['publicationName']"/>
+                <field id="topicName" mapping="['topicName']"/>
+                <field id="saveChanges" mapping="['saveChanges']"/>
+            </in>
+        </operation>
     </operations>
 
 </object>

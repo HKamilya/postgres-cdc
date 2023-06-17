@@ -1,86 +1,88 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <page xmlns="http://n2oapp.net/framework/config/schema/page-4.0"
       name="Создание слушателя">
+    <datasources>
+        <datasource id="ds1" query-id="connector" object-id="connector"/>
+    </datasources>
     <regions>
         <form>
-            <datasource query-id="connector"/>
-            <toolbar place="topLeft">
-                <button label="Сохранить">
-                    <invoke operation-id="update" object-id="connector"/>
-                </button>
-            </toolbar>
             <fields>
+                <button label="Сохранить">
+                    <invoke operation-id="create" object-id="connector" route="/new"/>
+                </button>
                 <row>
-                    <col size="6">
+                    <col size="5">
                     </col>
                 </row>
                 <row>
-                    <col size="6">
-                        <input-text id="dataType" label="Тип отправляемых данных" enabled="false"/>
+                    <col size="5">
+                        <input-select id="dataType" label="Тип отправляемых данных">
+                            <options>
+                                <option id="bytes" name="bytes"/>
+                                <option id="json" name="json"/>
+                                <option id="proto" name="proto"/>
+                                <option id="avro" name="avro"/>
+                            </options>
+                        </input-select>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="host" label="Хост"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="port" label="Порт"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="database" label="Название базы данных"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
-                        <input-text id="username" label="Имя пользователя"/>
+                    <col size="5">
+                        <input-text id="user" label="Имя пользователя"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <password id="password" label="Пароль"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <checkbox id="fromBegin" label="Прослушавание с первого изменения"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
                         <checkbox id="forAllTables" label="Прослушивания всех таблиц в схеме"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
-                        <input-text id="schema" label="Схема"/>
-                    </col>
-                </row>
-                <row>
-                    <col size="6">
+                    <col size="5">
                         <input-text id="tables" label="Таблица"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
+                    <col size="5">
+                        <input-text id="slotName" label="Название слота"/>
+                    </col>
+                </row>
+                <row>
+                    <col size="5">
+                        <input-text id="publicationName" label="Название публикации"/>
+                    </col>
+                </row>
+                <row>
+                    <col size="5">
                         <input-text id="topicName" label="Название топика"/>
                     </col>
                 </row>
                 <row>
-                    <col size="6">
-                        <input-text id="cdcInfoEntity.publicationName" label="Название публикации"/>
-                    </col>
-                </row>
-                <row>
-                    <col size="6">
-                        <input-text id="cdcInfoEntity.slotName" label="Название слота"/>
-                    </col>
-                </row>
-                <row>
-                    <col size="6">
+                    <col size="5">
                         <checkbox id="saveChanges" label="Сохранение полученных изменений"/>
                     </col>
                 </row>
